@@ -3,9 +3,14 @@
   "version": "1.0.0",
   "description": "Daisy Flowers AI Budtender API Server",
   "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "cd client && npm install && npm run build",
+    "postinstall": "cd client && npm install"
   },
   "dependencies": {
     "cors": "^2.8.5",

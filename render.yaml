@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: daisyflowers
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: JANE_TOKEN
+        sync: false
+    healthCheckPath: /api/health
