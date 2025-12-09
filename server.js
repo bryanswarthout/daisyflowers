@@ -3,13 +3,19 @@ const express = require('express');
 const cors = require('cors');
 const https = require('https');
 const fs = require('fs');
+const path = require('path');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from client/dist in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'client/dist')));
+}
 
 const JANE_API_URL = 'https://api.iheartjane.com/partner/v1/stores/1636/menu_products';
 const JANE_TOKEN = process.env.JANE_TOKEN || '7fhFHHYnEYX7ZTu4tXBdkRFS';
@@ -308,7 +314,13 @@ Pick the best 2 products and provide recommendations.`;
 
 // API Endpoints
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', products: productsCache ? productsCache.length : 0 });
+  res.json({ 
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    products: productsCache ? productsCache.length : 0,
+    environment: process.env.NODE_ENV || 'development',
+    version: require('./package.json').version
+  });
 });
 
 app.post('/api/chat', async (req, res) => {
@@ -342,6 +354,13 @@ app.post('/api/chat', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Serve React app for all non-API routes in production
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client/dist/index.html'));
+  });
+}
 
 // Start server
 app.listen(PORT, () => {
