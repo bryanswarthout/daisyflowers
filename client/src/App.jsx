@@ -420,7 +420,7 @@ function App() {
                         )}
                         {product.path && (
                           <a 
-                            href={`https://beyond-hello.com/pennsylvania-dispensaries/bristol/medical-menu/menu${product.path}`}
+                            href={product.path}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="product-link"

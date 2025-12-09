@@ -17,7 +17,7 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, 'client/dist')));
 }
 
-const JANE_API_URL = 'https://api.iheartjane.com/partner/v1/stores/1636/menu_products';
+const JANE_API_URL = 'https://api.iheartjane.com/partner/v1/stores/1635/menu_products';
 const JANE_TOKEN = process.env.JANE_TOKEN || '7fhFHHYnEYX7ZTu4tXBdkRFS';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
@@ -106,6 +106,63 @@ async function getAllProducts() {
   return allProducts;
 }
 
+// Utility function for true randomization
+function fisherYatesShuffle(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+// Function to generate correct Beyond Hello product URL
+function generateProductUrl(product) {
+  // Use product_id (not id) and the existing path as base
+  const productId = product.product_id;
+  
+  if (!productId) {
+    return null;
+  }
+  
+  // If there's an existing path, extract the slug from it and use product_id
+  if (product.path && product.path.includes('/')) {
+    const pathParts = product.path.split('/');
+    if (pathParts.length >= 3) {
+      // path format is usually "products/12345/slug-here"
+      const existingSlug = pathParts.slice(2).join('/'); // Get everything after "products/12345/"
+      return `https://beyond-hello.com/pennsylvania-dispensaries/bristol/medical-menu/menu/products/${productId}/${existingSlug}`;
+    }
+  }
+  
+  // Fallback: generate slug from brand and name if no existing path
+  let slug = '';
+  
+  if (product.brand) {
+    slug = product.brand.toLowerCase()
+      .replace(/[™®]/g, '') // Remove trademark symbols
+      .replace(/[^a-z0-9]/g, '-') // Replace non-alphanumeric with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single
+      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+  }
+  
+  if (product.name) {
+    const namePart = product.name.toLowerCase()
+      .replace(/[™®]/g, '') // Remove trademark symbols
+      .replace(/[^a-z0-9]/g, '-') // Replace non-alphanumeric with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single
+      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+    
+    if (slug && namePart) {
+      slug += '-' + namePart;
+    } else {
+      slug = namePart || `product-${productId}`;
+    }
+  }
+  
+  return `https://beyond-hello.com/pennsylvania-dispensaries/bristol/medical-menu/menu/products/${productId}/${slug}`;
+}
+
 // Session management
 function getSessionId(req) {
   // Simple session ID based on IP and user agent (for demo purposes)
@@ -134,12 +191,27 @@ function cleanOldSessions() {
 
 // Function to analyze with AI
 async function analyzeWithAI(products, userQuery, sessionId = null) {
+  console.log(`Starting with ${products.length} total products`);
+
   // Filter by approved brands
   const approvedBrands = ['hijinks', 'lab', 'nira+', 'nira', 'flower foundry', 'seche', 'tasteology'];
   let filteredProducts = products.filter(p => {
     const brand = (p.brand || '').toLowerCase().trim();
     return approvedBrands.some(approved => brand.includes(approved));
   });
+
+  console.log(`After brand filtering: ${filteredProducts.length} products`);
+  
+  // Debug: Log some sample product data
+  if (filteredProducts.length > 0) {
+    const sampleProduct = filteredProducts[0];
+    console.log(`Sample product structure:`, {
+      name: sampleProduct.name,
+      brand: sampleProduct.brand,
+      kind: sampleProduct.kind,
+      available_kinds: Object.keys(sampleProduct).filter(k => k.includes('kind') || k.includes('type'))
+    });
+  }
 
   // Filter by category
   const queryLower = userQuery.toLowerCase();
@@ -172,35 +244,87 @@ async function analyzeWithAI(products, userQuery, sessionId = null) {
     });
   }
 
-  console.log(`Filtered to ${filteredProducts.length} products (category: ${categoryFilter || 'none'})`);
+  console.log(`After category filtering: ${filteredProducts.length} products (category: ${categoryFilter || 'none'})`);
 
-  // Handle session memory for product variety
+  // Handle session memory for product variety with enhanced randomization
   let sessionMemory = null;
   if (sessionId) {
     sessionMemory = getSessionMemory(sessionId);
     
     // Check if user is asking for different products
-    const isDifferentRequest = userQuery.toLowerCase().match(/\b(different|other|another|new|alternative|else|show me something else)\b/);
+    const isDifferentRequest = userQuery.toLowerCase().match(/\b(different|other|another|new|alternative|else|show me something else|something different)\b/);
     
     if (isDifferentRequest && sessionMemory.lastCategory === categoryFilter) {
-      // Filter out previously shown products
+      const beforeMemoryFilter = filteredProducts.length;
+      const recentlyShown = Array.from(sessionMemory.shownProducts);
+      console.log(`Previously shown products: ${recentlyShown.join(', ')}`);
+      
       filteredProducts = filteredProducts.filter(p => 
         !sessionMemory.shownProducts.has(p.name)
       );
-      console.log(`Filtered out previously shown products, ${filteredProducts.length} remaining`);
+      
+      console.log(`After memory filtering: ${filteredProducts.length} products (removed ${beforeMemoryFilter - filteredProducts.length})`);
+      
+      // If we've filtered out too many, reset some older products (keep variety flowing)
+      if (filteredProducts.length < 3 && recentlyShown.length > 6) {
+        console.log('Too few products remaining, resetting memory...');
+        sessionMemory.shownProducts.clear();
+        // Re-add only the most recent 2 products to avoid immediate repeats
+        recentlyShown.slice(-2).forEach(name => sessionMemory.shownProducts.add(name));
+        
+        // Re-filter with new memory
+        filteredProducts = products.filter(p => {
+          const brand = (p.brand || '').toLowerCase().trim();
+          const matchesBrand = approvedBrands.some(approved => brand.includes(approved));
+          const matchesCategory = categoryFilter ? (p.kind || '').toLowerCase() === categoryFilter : true;
+          const notRecentlyShown = !sessionMemory.shownProducts.has(p.name);
+          return matchesBrand && matchesCategory && notRecentlyShown;
+        });
+        
+        console.log(`After memory reset: ${filteredProducts.length} products available`);
+      }
     }
     
     // Update category tracking
     if (categoryFilter !== sessionMemory.lastCategory) {
-      // New category, reset shown products
+      // New category, reset shown products but keep some cross-category memory
       sessionMemory.shownProducts.clear();
       sessionMemory.lastCategory = categoryFilter;
+      console.log(`New category detected, cleared memory for: ${categoryFilter}`);
     }
   }
 
-  // Randomize product selection for variety
-  const shuffled = filteredProducts.sort(() => 0.5 - Math.random());
-  const productsToSend = shuffled.slice(0, 8).map(p => ({
+  // Multiple rounds of shuffling for maximum randomness
+  let shuffled = fisherYatesShuffle(filteredProducts);
+  
+  // Add time-based seed for additional variance
+  const timeSeed = Date.now() % 1000;
+  shuffled = shuffled.sort(() => (Math.random() + timeSeed / 1000) - 0.5);
+  
+  // Final Fisher-Yates shuffle
+  shuffled = fisherYatesShuffle(shuffled);
+  
+  // Take a larger, random slice from different parts of the array
+  const totalProducts = shuffled.length;
+  const sliceSize = Math.min(25, Math.max(15, Math.floor(totalProducts * 0.4))); // Take 40% but at least 15, max 25
+  const maxStartIndex = Math.max(0, totalProducts - sliceSize);
+  const startIndex = Math.floor(Math.random() * (maxStartIndex + 1));
+  
+  console.log(`Taking ${sliceSize} products from index ${startIndex} out of ${totalProducts} total (time seed: ${timeSeed})`);
+  
+  // Safety check: if no products after all filtering, fall back to broader selection
+  if (shuffled.length === 0) {
+    console.log('⚠️  No products after filtering! Falling back to approved brands only...');
+    // Reset to just brand filtering
+    filteredProducts = products.filter(p => {
+      const brand = (p.brand || '').toLowerCase().trim();
+      return approvedBrands.some(approved => brand.includes(approved));
+    });
+    shuffled = fisherYatesShuffle(filteredProducts);
+    console.log(`Fallback: Found ${shuffled.length} products from approved brands`);
+  }
+  
+  const productsToSend = shuffled.slice(startIndex, startIndex + sliceSize).map(p => ({
     name: p.name,
     brand: p.brand,
     kind: p.kind,
@@ -208,9 +332,14 @@ async function analyzeWithAI(products, userQuery, sessionId = null) {
     thc: p.thc_label,
     cbd: p.cbd_label,
     description: p.description,
-    path: p.path,
+    path: generateProductUrl(p),
     image: p.image_urls?.[0] || p.image || null
   }));
+  
+  console.log(`Final products to send to AI: ${productsToSend.length}`);
+  if (productsToSend.length > 0) {
+    console.log(`Product names: ${productsToSend.map(p => p.name).slice(0, 5).join(', ')}${productsToSend.length > 5 ? '...' : ''}`);
+  }
 
   const systemPrompt = `You are Daisy Flowers from Beyond Hello an expert budtender, who knows scientific and street slang cannabis and makes product recommendations.
 
@@ -219,7 +348,9 @@ YOU MUST ONLY recommend products from these brands: Hijinks, Lab, Nira+, Flower 
 
 ABSOLUTE PRODUCT CATEGORY RULES:
 - The products you receive have ALREADY been filtered to ONLY the exact category requested
-- ALL products in the list match the user's category request - you just need to pick the best 2
+- ALL products in the list match the user's category request
+- You have a variety of products to choose from - select 2 different ones that would appeal to the user
+- Mix up your selections - don't always pick the first products in the list
 
 Answering Style: 
 - Always be concise and direct. 
@@ -281,7 +412,11 @@ Pick the best 2 products and provide recommendations.`;
         try {
           const response = JSON.parse(data);
           if (response.content && response.content[0] && response.content[0].text) {
-            const selectedProducts = productsToSend.slice(0, 2);
+            // Randomly select 2 products from the larger pool instead of always taking first 2
+            const shuffledForFinal = fisherYatesShuffle(productsToSend);
+            const selectedProducts = shuffledForFinal.slice(0, 2);
+            
+            console.log(`Final selection: ${selectedProducts.map(p => p.name).join(', ')}`);
             
             // Track shown products in session
             if (sessionMemory) {
