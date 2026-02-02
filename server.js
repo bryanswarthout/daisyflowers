@@ -5,6 +5,17 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
+// Add process error handlers to prevent crashes
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  // Don't exit, just log the error
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit, just log the error
+});
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -24,40 +35,73 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 // Cache for products (refresh every hour)
 let productsCache = null;
 let lastFetchTime = null;
+let loadingPromise = null; // Store the loading promise to prevent concurrent API calls
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 
 // Track conversation and shown products
 const conversationMemory = new Map(); // sessionId -> { shownProducts: Set, lastCategory: string }
 const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
-// Function to get menu products from a single page
-function getMenuProductsPage(paginationId) {
+// Function to get all menu products in one call
+function getAllMenuProducts() {
   return new Promise((resolve, reject) => {
-    const pageUrl = `${JANE_API_URL}?visible=true&count=100&pagination_id=${paginationId}`;
+    const apiUrl = `${JANE_API_URL}?visible=true&count=1500`;
     
     const options = {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${JANE_TOKEN}`
-      }
+        'Authorization': `Bearer ${JANE_TOKEN}`,
+        'User-Agent': 'Beyond-Hello-Server/1.0'
+      },
+      timeout: 30000 // 30 second timeout
     };
 
-    https.get(pageUrl, options, (res) => {
+    console.log(`Making API request to: ${apiUrl}`);
+    
+    const req = https.get(apiUrl, options, (res) => {
       let data = '';
-      res.on('data', (chunk) => { data += chunk; });
+      
+      console.log(`API Response Status: ${res.statusCode}`);
+      
+      res.on('data', (chunk) => { 
+        data += chunk; 
+      });
+      
       res.on('end', () => {
         try {
           if (res.statusCode === 200) {
             const jsonData = JSON.parse(data);
+            console.log(`API Response: Found ${jsonData.products?.length || 0} products`);
             resolve(jsonData);
           } else {
-            reject(new Error(`API returned status ${res.statusCode}`));
+            console.error(`API Error: Status ${res.statusCode}, Body: ${data.substring(0, 500)}`);
+            reject(new Error(`API returned status ${res.statusCode}: ${data.substring(0, 200)}`));
           }
         } catch (err) {
-          reject(err);
+          console.error('JSON Parse Error:', err.message);
+          console.error('Response data:', data.substring(0, 500));
+          reject(new Error(`Failed to parse API response: ${err.message}`));
         }
       });
-    }).on('error', reject);
+      
+      res.on('error', (err) => {
+        console.error('Response error:', err.message);
+        reject(err);
+      });
+    });
+
+    req.on('error', (err) => {
+      console.error('Request error:', err.message);
+      reject(new Error(`Network error: ${err.message}`));
+    });
+
+    req.on('timeout', () => {
+      console.error('Request timeout');
+      req.destroy();
+      reject(new Error('API request timed out after 30 seconds'));
+    });
+
+    req.setTimeout(30000);
   });
 }
 
@@ -69,41 +113,43 @@ async function getAllProducts() {
     return productsCache;
   }
 
+  // If already loading, return the existing promise
+  if (loadingPromise) {
+    console.log('API call already in progress, waiting for completion...');
+    return loadingPromise;
+  }
+
   console.log('Fetching fresh products from API...');
-  let allProducts = [];
-  let paginationId = 0;
-  let hasMorePages = true;
-
-  while (hasMorePages && paginationId < 100) {
+  
+  // Create and store the loading promise
+  loadingPromise = (async () => {
     try {
-      const pageData = await getMenuProductsPage(paginationId);
-      const products = pageData.products || pageData.menu_products || [];
+      const data = await getAllMenuProducts();
+      const allProducts = data.products || data.menu_products || [];
       
-      if (products.length > 0) {
-        allProducts = allProducts.concat(products);
-        paginationId++;
-      } else {
-        hasMorePages = false;
+      productsCache = allProducts;
+      lastFetchTime = Date.now();
+      console.log(`Loaded ${allProducts.length} products`);
+      
+      // Save all products to JSON file
+      try {
+        fs.writeFileSync('products.json', JSON.stringify(allProducts, null, 2));
+        console.log('✅ Products saved to products.json');
+      } catch (err) {
+        console.error('Error saving products to file:', err.message);
       }
+      
+      return allProducts;
     } catch (err) {
-      console.error(`Error fetching page ${paginationId}:`, err.message);
-      hasMorePages = false;
+      console.error('Error fetching products:', err.message);
+      throw err;
+    } finally {
+      // Clear the loading promise when done
+      loadingPromise = null;
     }
-  }
+  })();
 
-  productsCache = allProducts;
-  lastFetchTime = Date.now();
-  console.log(`Loaded ${allProducts.length} products`);
-  
-  // Save all products to JSON file
-  try {
-    fs.writeFileSync('products.json', JSON.stringify(allProducts, null, 2));
-    console.log('✅ Products saved to products.json');
-  } catch (err) {
-    console.error('Error saving products to file:', err.message);
-  }
-  
-  return allProducts;
+  return loadingPromise;
 }
 
 // Utility function for true randomization
@@ -312,16 +358,25 @@ async function analyzeWithAI(products, userQuery, sessionId = null) {
   
   console.log(`Taking ${sliceSize} products from index ${startIndex} out of ${totalProducts} total (time seed: ${timeSeed})`);
   
-  // Safety check: if no products after all filtering, fall back to broader selection
+  // Safety check: if no products after all filtering, fall back to broader selection BUT maintain category
   if (shuffled.length === 0) {
     console.log('⚠️  No products after filtering! Falling back to approved brands only...');
-    // Reset to just brand filtering
+    // Reset to just brand filtering BUT keep the category filter if specified
     filteredProducts = products.filter(p => {
       const brand = (p.brand || '').toLowerCase().trim();
-      return approvedBrands.some(approved => brand.includes(approved));
+      const matchesBrand = approvedBrands.some(approved => brand.includes(approved));
+      const matchesCategory = categoryFilter ? (p.kind || '').toLowerCase() === categoryFilter : true;
+      return matchesBrand && matchesCategory;
     });
     shuffled = fisherYatesShuffle(filteredProducts);
-    console.log(`Fallback: Found ${shuffled.length} products from approved brands`);
+    console.log(`Fallback: Found ${shuffled.length} products from approved brands ${categoryFilter ? 'for category: ' + categoryFilter : ''}`);
+    
+    // If still no products even with fallback, that means no approved brands have this category
+    if (shuffled.length === 0 && categoryFilter) {
+      console.log(`❌ No approved brands have ${categoryFilter} products!`);
+      // Return early with error instead of sending wrong product types
+      throw new Error(`Sorry, we don't have any ${categoryFilter} products available from our approved brands right now.`);
+    }
   }
   
   const productsToSend = shuffled.slice(startIndex, startIndex + sliceSize).map(p => ({
@@ -459,17 +514,38 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/chat', async (req, res) => {
+  console.log('=== /api/chat endpoint called ===');
+  
   try {
     const { message } = req.body;
+    console.log('✅ Request body parsed successfully');
     
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    console.log(`User query: ${message}`);
+    console.log(`✅ User query received: ${message}`);
 
-    // Get products
-    const products = await getAllProducts();
+    // Get products with better error handling
+    let products;
+    try {
+      console.log('📦 Starting product loading...');
+      products = await getAllProducts();
+      console.log('✅ Products loaded successfully');
+    } catch (error) {
+      console.error('❌ Failed to get products:', error.message);
+      return res.status(500).json({ 
+        error: 'Unable to load product catalog. Please try again later.',
+        details: error.message 
+      });
+    }
+
+    if (!products || products.length === 0) {
+      console.log('⚠️  No products available');
+      return res.status(500).json({ 
+        error: 'No products available at this time. Please try again later.' 
+      });
+    }
 
     // Clean old sessions periodically
     cleanOldSessions();
@@ -478,15 +554,27 @@ app.post('/api/chat', async (req, res) => {
     const sessionId = getSessionId(req);
     
     // Get AI response with product data
+    console.log('🤖 Starting AI analysis...');
     const result = await analyzeWithAI(products, message, sessionId);
+    console.log('✅ AI analysis complete');
 
+    console.log('✅ Sending response...');
     res.json({ 
       response: result.text, 
       products: result.products 
     });
+    console.log('✅ Response sent successfully');
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error in /api/chat:', error);
+    console.error('❌ Stack trace:', error.stack);
+    
+    // Make sure we always send a response
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: 'An error occurred processing your request. Please try again.',
+        details: error.message 
+      });
+    }
   }
 });
 
@@ -500,8 +588,5 @@ if (process.env.NODE_ENV === 'production') {
 // Start server
 app.listen(PORT, () => {
   console.log(`🌼 Daisy Flowers API Server running on http://localhost:${PORT}`);
-  console.log('Preloading products...');
-  getAllProducts().then(() => {
-    console.log('✅ Products preloaded');
-  });
+  console.log('Ready to serve requests - products will be loaded on demand');
 });
