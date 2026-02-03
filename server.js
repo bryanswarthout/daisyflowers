@@ -235,9 +235,79 @@ function cleanOldSessions() {
   }
 }
 
+// Enhanced query analysis for complex thinking
+function analyzeQueryComplexity(query) {
+  const complexityIndicators = {
+    multipleEffects: /\b(and|but|also|plus|with|without)\b/i.test(query),
+    timeContext: /\b(morning|afternoon|evening|night|daytime|work|weekend)\b/i.test(query),
+    experienceLevel: /\b(new|beginner|experienced|tolerance|first time|regular)\b/i.test(query),
+    specificEffects: /\b(focus|creative|anxiety|energy|sleep|pain|appetite|mood)\b/i.test(query),
+    avoidanceTerms: /\b(without|not|avoid|don't want|no)\b/i.test(query),
+    intensityPrefs: /\b(mild|strong|potent|light|heavy|intense)\b/i.test(query)
+  };
+  
+  const complexityScore = Object.values(complexityIndicators).filter(Boolean).length;
+  return { indicators: complexityIndicators, score: complexityScore };
+}
+
+// Enhanced terpene effect mapping for complex analysis
+const terpeneEffects = {
+  myrcene: ['sedating', 'relaxing', 'sleep', 'muscle relaxation', 'couch lock'],
+  limonene: ['uplifting', 'mood boost', 'stress relief', 'energy', 'citrus'],
+  caryophyllene: ['calming', 'anti-inflammatory', 'stress', 'spicy', 'pepper'],
+  pinene: ['alertness', 'memory', 'focus', 'energy', 'pine', 'clarity'],
+  linalool: ['calming', 'sleep', 'lavender', 'anxiety relief', 'peaceful'],
+  humulene: ['appetite suppression', 'alertness', 'earthy', 'woody'],
+  terpinolene: ['sedating', 'antioxidant', 'herbal', 'complex'],
+  ocimene: ['uplifting', 'sweet', 'herbaceous', 'decongestant']
+};
+
+// Function to extract terpene information from product data
+function extractTerpeneProfile(product) {
+  const terpeneInfo = {
+    dominant: [],
+    effects: [],
+    profile: null
+  };
+  
+  // Check store_notes for terpene information
+  if (product.store_notes) {
+    const notes = product.store_notes.toLowerCase();
+    
+    // Look for specific terpene mentions
+    Object.keys(terpeneEffects).forEach(terpene => {
+      if (notes.includes(terpene)) {
+        terpeneInfo.dominant.push(terpene);
+        terpeneInfo.effects.push(...terpeneEffects[terpene]);
+      }
+    });
+  }
+  
+  // Check description for terpene clues
+  if (product.description) {
+    const desc = product.description.toLowerCase();
+    
+    // Look for effect keywords that suggest terpene presence
+    Object.entries(terpeneEffects).forEach(([terpene, effects]) => {
+      if (effects.some(effect => desc.includes(effect))) {
+        if (!terpeneInfo.dominant.includes(terpene)) {
+          terpeneInfo.dominant.push(terpene);
+          terpeneInfo.effects.push(...effects);
+        }
+      }
+    });
+  }
+  
+  return terpeneInfo;
+}
+
 // Function to analyze with AI
 async function analyzeWithAI(products, userQuery, sessionId = null) {
   console.log(`Starting with ${products.length} total products`);
+  
+  // Analyze query complexity for extended thinking
+  const complexity = analyzeQueryComplexity(userQuery);
+  console.log(`Query complexity score: ${complexity.score}/6`, complexity.indicators);
 
   // Filter by approved brands
   const approvedBrands = ['hijinks', 'lab', 'nira+', 'nira', 'flower foundry', 'seche', 'tasteology'];
@@ -248,6 +318,12 @@ async function analyzeWithAI(products, userQuery, sessionId = null) {
 
   console.log(`After brand filtering: ${filteredProducts.length} products`);
   
+  // Enhanced product analysis - add terpene profiles
+  filteredProducts = filteredProducts.map(product => {
+    const terpeneProfile = extractTerpeneProfile(product);
+    return { ...product, terpeneProfile };
+  });
+  
   // Debug: Log some sample product data
   if (filteredProducts.length > 0) {
     const sampleProduct = filteredProducts[0];
@@ -255,6 +331,7 @@ async function analyzeWithAI(products, userQuery, sessionId = null) {
       name: sampleProduct.name,
       brand: sampleProduct.brand,
       kind: sampleProduct.kind,
+      terpeneProfile: sampleProduct.terpeneProfile,
       available_kinds: Object.keys(sampleProduct).filter(k => k.includes('kind') || k.includes('type'))
     });
   }
@@ -383,10 +460,18 @@ async function analyzeWithAI(products, userQuery, sessionId = null) {
     name: p.name,
     brand: p.brand,
     kind: p.kind,
+    kind_subtype: p.kind_subtype || p.root_subtype,
+    type: p.type,
     price: p.price_each,
     thc: p.thc_label,
     cbd: p.cbd_label,
+    percent_thc: p.percent_thc,
+    percent_cbd: p.percent_cbd,
     description: p.description,
+    store_notes: p.store_notes,
+    effects: p.effects,
+    flavors: p.flavors,
+    terpeneProfile: p.terpeneProfile,
     path: generateProductUrl(p),
     image: p.image_urls?.[0] || p.image || null
   }));
@@ -396,49 +481,116 @@ async function analyzeWithAI(products, userQuery, sessionId = null) {
     console.log(`Product names: ${productsToSend.map(p => p.name).slice(0, 5).join(', ')}${productsToSend.length > 5 ? '...' : ''}`);
   }
 
-  const systemPrompt = `You are Daisy Flowers from Beyond Hello an expert budtender, who knows scientific and street slang cannabis and makes product recommendations.
+  const systemPrompt = `You are Daisy Flowers from Beyond Hello, an expert budtender with deep knowledge of cannabis science, terpene profiles, and product analysis.
+
+EXTENDED THINKING PROCESS:
+Before making any recommendations, work through this structured analysis:
+
+<thinking>
+1. QUERY ANALYSIS:
+   - What is the user really asking for? (category, effects, experience level, etc.)
+   - Are there multiple needs or preferences mentioned?
+   - What's the primary goal vs. secondary considerations?
+
+2. PRODUCT ASSESSMENT:
+   - Review each product's complete profile (THC/CBD, terpenes, effects, flavors)
+   - Cross-reference terpene profiles with desired effects
+   - Consider onset time, duration, and intensity factors
+   - Analyze product synergies and complementary options
+
+3. USER MATCHING:
+   - Experience level indicators (beginner vs. experienced)
+   - Time of day preferences (morning, afternoon, evening)
+   - Consumption method preferences
+   - Budget considerations from available sizes/pricing
+
+4. COMPLEX CONSIDERATIONS:
+   - Terpene entourage effects for desired outcomes
+   - Product format optimization (flower vs. edible vs. vape for use case)
+   - Potential product combinations or progression recommendations
+   - Brand quality and consistency factors
+
+5. SELECTION LOGIC:
+   - Primary recommendation based on best match
+   - Secondary option offering variety or alternative approach
+   - Reasoning for why these specific products over others
+</thinking>
 
 CRITICAL BRAND REQUIREMENT: 
 YOU MUST ONLY recommend products from these brands: Hijinks, Lab, Nira+, Flower Foundry, Seche, Tasteology
 
-ABSOLUTE PRODUCT CATEGORY RULES:
-- The products you receive have ALREADY been filtered to ONLY the exact category requested
-- ALL products in the list match the user's category request
-- You have a variety of products to choose from - select 2 different ones that would appeal to the user
-- Mix up your selections - don't always pick the first products in the list
+DEEP PRODUCT ANALYSIS:
+For complex queries, analyze products across multiple dimensions:
+- TERPENE PROFILES: Match dominant terpenes to desired effects
+  * Myrcene: Sedating, muscle relaxation
+  * Limonene: Mood elevation, stress relief  
+  * Caryophyllene: Anti-inflammatory, calming
+  * Pinene: Alertness, memory retention
+  * Linalool: Calming, sleep promotion
+  * Humulene: Appetite suppression, alertness
+- CANNABINOID RATIOS: THC:CBD balance for different effects
+- CONSUMPTION TIMING: Onset and duration considerations
+- SYNERGY POTENTIAL: How products might complement each other
 
-Answering Style: 
-- Always be concise and direct. 
-- Always say "let me take a look and see what we can find" or something similar immediately after a request
-- If user asks for "different" or "other" products, acknowledge their request with phrases like "Let me show you some different options" or "Here are some other great choices"
-- Max: one short intro sentence, then show results. 
-- Speak the names of the products not just list them in cards. 
-- Never use medical terms like 'pain relief,' 'treats,' 'cures,' or make any therapeutic claims.
-- If someone asks about sleep, anxiety, pain reframe by saying a compliant variation (relax, restore, unwind) 
-- Always mention specific product names like "Here are some great options - the [Product Name 1] and [Product Name 2]:" 
-- End every answer with the disclaimer. 
+PRODUCT DATA STRUCTURE:
+Each product contains comprehensive data including:
+- name, brand, kind, kind_subtype
+- type/lineage (hybrid, indica, sativa)
+- percent_thc, percent_cbd, terpene data
+- description, store_notes (detailed terpene/effect info)
+- effects array, flavors array
+- pricing across different sizes
+- available consumption methods
 
-Product Rules: 
-- For any sleep or Nighttime edibles ALWAYS show Tasteology Berry Dream first
-- Seche is pronounced "Sesh-A" and Tasteology is pronounced "Taste-Ology"
-- mg or MG is pronounced "milligrams"
+ENHANCED SELECTION STRATEGY:
+1. Deep dive into user intent and context clues
+2. Cross-reference terpene profiles with scientific effect data
+3. Consider consumption method optimization
+4. Factor in experience level and tolerance
+5. Balance primary effects with secondary benefits
+6. Optimize timing and lifestyle fit
+7. Provide educational context for choices
 
-Output Format: 
-- 1-2 sentence intro
-- Product recommendations with names, descriptions
-- End with: "This isn't medical advice. Availability may vary by store."`;
+ANSWERING STYLE: 
+- Always say "let me take a look and see what we can find" or similar
+- For complex queries, briefly explain your reasoning process
+- Mention specific terpenes and effects when relevant
+- Keep responses focused but informative
+- Never use medical terms - use compliant language
+- End with disclaimer
+
+COMPLEX QUERY EXAMPLES:
+- Multi-effect needs: "I want something energizing but not anxious"
+- Timing considerations: "Something for creative work during the day"
+- Experience optimization: "I'm new but want something effective"
+- Lifestyle integration: "Party-friendly but functional"
+
+OUTPUT FORMAT: 
+- Brief acknowledgment + "let me analyze what we have"
+- Concise explanation of selection reasoning
+- 2 product recommendations with key differentiators
+- End with: "This isn't medical advice. Availability may vary by store."`
 
   const userPrompt = `User Question: ${userQuery}
+
+Query Complexity Analysis:
+- Complexity Score: ${complexity.score}/6 (${complexity.score >= 4 ? 'HIGH - Use full extended thinking' : complexity.score >= 2 ? 'MODERATE - Use structured analysis' : 'LOW - Standard analysis appropriate'})
+- Multiple Effects: ${complexity.indicators.multipleEffects ? 'Yes' : 'No'}
+- Time Context: ${complexity.indicators.timeContext ? 'Yes' : 'No'}  
+- Experience Level: ${complexity.indicators.experienceLevel ? 'Yes' : 'No'}
+- Specific Effects: ${complexity.indicators.specificEffects ? 'Yes' : 'No'}
+- Avoidance Terms: ${complexity.indicators.avoidanceTerms ? 'Yes' : 'No'}
+- Intensity Preferences: ${complexity.indicators.intensityPrefs ? 'Yes' : 'No'}
 
 Products Available (ONLY ${categoryFilter ? categoryFilter.toUpperCase() : 'approved brands'}):
 ${JSON.stringify(productsToSend, null, 2)}
 
-Pick the best 2 products and provide recommendations.`;
+${complexity.score >= 3 ? 'Use your full extended thinking process to thoroughly analyze this complex request.' : 'Use structured analysis appropriate for this query complexity.'} Pick the best 2 products and explain your reasoning.`
 
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify({
       model: 'claude-3-7-sonnet-20250219',
-      max_tokens: 500,
+      max_tokens: 1000,
       system: [
         {
           type: "text",
@@ -467,11 +619,11 @@ Pick the best 2 products and provide recommendations.`;
         try {
           const response = JSON.parse(data);
           if (response.content && response.content[0] && response.content[0].text) {
-            // Randomly select 2 products from the larger pool instead of always taking first 2
-            const shuffledForFinal = fisherYatesShuffle(productsToSend);
-            const selectedProducts = shuffledForFinal.slice(0, 2);
+            // Use the first 2 products that the AI analyzed - no more random shuffling!
+            // This ensures the AI's recommendations match the products returned
+            const selectedProducts = productsToSend.slice(0, 2);
             
-            console.log(`Final selection: ${selectedProducts.map(p => p.name).join(', ')}`);
+            console.log(`Final selection (matching AI analysis): ${selectedProducts.map(p => p.name).join(', ')}`);
             
             // Track shown products in session
             if (sessionMemory) {
