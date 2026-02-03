@@ -1,5 +1,64 @@
 import { useState, useRef, useEffect } from 'react'
+import { 
+  Box, 
+  Container, 
+  Typography, 
+  TextField, 
+  Button, 
+  Paper, 
+  Grid, 
+  Card, 
+  CardContent, 
+  CardMedia, 
+  Chip, 
+  IconButton,
+  CircularProgress,
+  Stack,
+  Divider,
+  Link
+} from '@mui/material'
+import { 
+  Mic as MicIcon,
+  MicOff as MicOffIcon,
+  Send as SendIcon,
+  VolumeUp as VolumeUpIcon,
+  VolumeOff as VolumeOffIcon
+} from '@mui/icons-material'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
+import CssBaseline from '@mui/material/CssBaseline'
 import './App.css'
+
+// Create a custom theme for a more professional look
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#2e7d32', // Cannabis green
+      light: '#66bb6a',
+      dark: '#1b5e20',
+    },
+    secondary: {
+      main: '#f06292', // Daisy pink
+      light: '#f8bbd9',
+      dark: '#e91e63',
+    },
+    background: {
+      default: '#f8f9fa',
+      paper: '#ffffff',
+    },
+  },
+  typography: {
+    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    h4: {
+      fontWeight: 600,
+    },
+    h6: {
+      fontWeight: 500,
+    },
+  },
+  shape: {
+    borderRadius: 12,
+  },
+})
 
 function App() {
   const [messages, setMessages] = useState([
@@ -363,115 +422,220 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <header className="header">
-        <div className="avatar-container">
-          <div className={`avatar ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
-            <img 
-              src="/girl.png" 
-              alt="Daisy Flowers" 
-              className="avatar-image"
-            />
-            <div className="mouth-overlay">
-              <div className="mouth-animation"></div>
-            </div>
-            <div className="avatar-pulse"></div>
-          </div>
-        </div>
-        <h1>🌼 Daisy Flowers</h1>
-        <p>Your AI Budtender from Beyond Hello</p>
-        <div className="speech-controls">
-          <button 
-            onClick={toggleSpeech}
-            className={`speech-toggle ${speechEnabled ? 'enabled' : 'disabled'}`}
-            title={speechEnabled ? 'Click to disable speech' : 'Click to enable speech'}
-          >
-            {speechEnabled ? '🔊' : '🔇'} Voice {speechEnabled ? 'On' : 'Off'}
-          </button>
-        </div>
-      </header>
-
-      <div className="chat-container">
-        <div className="messages">
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`message ${msg.role}`}>
-              <div className="message-content">
-                {msg.isTypewriting ? typewriterText : msg.content}
-              </div>
-              {msg.products && msg.products.length > 0 && (
-                <div className="product-cards">
-                  {msg.products.map((product, pIdx) => (
-                    <div key={pIdx} className="product-card">
-                      {product.image && (
-                        <div className="product-image">
-                          <img src={product.image} alt={product.name} />
-                        </div>
-                      )}
-                      <div className="product-info">
-                        <h3 className="product-name">{product.name}</h3>
-                        <p className="product-brand">{product.brand}</p>
-                        <div className="product-details">
-                          <span className="product-kind">{product.kind}</span>
-                          {product.thc && <span className="product-thc">THC: {product.thc}</span>}
-                          {product.cbd && <span className="product-cbd">CBD: {product.cbd}</span>}
-                        </div>
-                        {product.price && (
-                          <p className="product-price">${product.price}</p>
-                        )}
-                        {product.path && (
-                          <a 
-                            href={product.path}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="product-link"
-                          >
-                            View Product →
-                          </a>
-                        )}
-                      </div>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
+        {/* Header */}
+        <Paper elevation={2} sx={{ mb: 2 }}>
+          <Container maxWidth="lg">
+            <Box sx={{ py: 3, textAlign: 'center' }}>
+              {/* Restored Original Avatar Container */}
+              <Box sx={{ mb: 2 }}>
+                <div className="avatar-container">
+                  <div className={`avatar ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
+                    <img 
+                      src="/girl.png" 
+                      alt="Daisy Flowers" 
+                      className="avatar-image"
+                    />
+                    <div className="mouth-overlay">
+                      <div className="mouth-animation"></div>
                     </div>
-                  ))}
+                    <div className="avatar-pulse"></div>
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
-          {isLoading && (
-            <div className="message assistant">
-              <div className="message-content loading">
-                <div className="typing-indicator">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+              </Box>
+              
+              <Typography variant="h4" component="h1" gutterBottom color="primary">
+                🌼 Daisy Flowers
+              </Typography>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Your AI Budtender from Beyond Hello
+              </Typography>
+              
+              <IconButton 
+                onClick={toggleSpeech}
+                color={speechEnabled ? 'primary' : 'default'}
+                size="large"
+                sx={{ mt: 1 }}
+                title={speechEnabled ? 'Click to disable speech' : 'Click to enable speech'}
+              >
+                {speechEnabled ? <VolumeUpIcon /> : <VolumeOffIcon />}
+              </IconButton>
+            </Box>
+          </Container>
+        </Paper>
 
-        <form onSubmit={sendMessage} className="input-form">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={isListening ? "Listening..." : "What are you looking for?"}
-            disabled={isLoading || isListening}
-            className="message-input"
-          />
-          <button 
-            type="button"
-            onClick={isListening ? stopListening : startListening}
-            disabled={isLoading}
-            className={`mic-button ${isListening ? 'listening' : ''}`}
-          >
-            🎤
-          </button>
-          <button type="submit" disabled={isLoading || !input.trim()} className="send-button">
-            Send
-          </button>
-        </form>
-      </div>
-    </div>
+        {/* Chat Container */}
+        <Container maxWidth="lg" sx={{ pb: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 220px)' }}>
+            {/* Messages */}
+            <Box sx={{ flexGrow: 1, overflow: 'auto', mb: 2 }}>
+              <Stack spacing={2}>
+                {messages.map((msg, idx) => (
+                  <Box key={idx} sx={{ width: '100%' }}>
+                    <Paper
+                      elevation={1}
+                      sx={{
+                        p: 2,
+                        backgroundColor: msg.role === 'user' ? 'primary.light' : 'background.paper',
+                        color: msg.role === 'user' ? 'white' : 'text.primary',
+                        ml: msg.role === 'user' ? 'auto' : 0,
+                        mr: msg.role === 'user' ? 0 : 'auto',
+                        maxWidth: msg.role === 'user' ? '70%' : '100%',
+                        width: msg.role === 'assistant' ? '100%' : 'auto'
+                      }}
+                    >
+                      <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {msg.isTypewriting ? typewriterText : msg.content}
+                      </Typography>
+                    </Paper>
+
+                    {/* Product Cards - Now below the text response */}
+                    {msg.products && msg.products.length > 0 && (
+                      <Box sx={{ mt: 2, width: '100%' }}>
+                        <Typography variant="h6" gutterBottom color="primary">
+                          Recommended Products:
+                        </Typography>
+                        <Grid container spacing={2}>
+                          {msg.products.map((product, pIdx) => (
+                            <Grid item xs={12} sm={6} key={pIdx}>
+                              <Card 
+                                elevation={2} 
+                                sx={{ 
+                                  height: '100%',
+                                  transition: 'all 0.3s ease',
+                                  '&:hover': {
+                                    elevation: 4,
+                                    transform: 'translateY(-2px)'
+                                  }
+                                }}
+                              >
+                                {product.image && (
+                                  <CardMedia
+                                    component="img"
+                                    height="200"
+                                    image={product.image}
+                                    alt={product.name}
+                                    sx={{ objectFit: 'contain', backgroundColor: '#f5f5f5' }}
+                                  />
+                                )}
+                                <CardContent>
+                                  <Typography variant="h6" component="h3" gutterBottom>
+                                    {product.name}
+                                  </Typography>
+                                  
+                                  <Typography variant="subtitle2" color="primary" gutterBottom>
+                                    {product.brand}
+                                  </Typography>
+
+                                  <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+                                    <Chip 
+                                      label={product.kind} 
+                                      size="small" 
+                                      color="primary" 
+                                      variant="outlined"
+                                    />
+                                    {product.thc && (
+                                      <Chip 
+                                        label={`THC: ${product.thc}`} 
+                                        size="small" 
+                                        color="secondary"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {product.cbd && (
+                                      <Chip 
+                                        label={`CBD: ${product.cbd}`} 
+                                        size="small" 
+                                        color="info"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                  </Stack>
+
+                                  {product.price && (
+                                    <Typography variant="h6" color="primary" gutterBottom>
+                                      ${product.price}
+                                    </Typography>
+                                  )}
+
+                                  {product.path && (
+                                    <Button
+                                      component={Link}
+                                      href={product.path}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      variant="contained"
+                                      size="small"
+                                      fullWidth
+                                      sx={{ mt: 1 }}
+                                    >
+                                      View Product
+                                    </Button>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </Grid>
+                          ))}
+                        </Grid>
+                      </Box>
+                    )}
+                  </Box>
+                ))}
+                
+                {isLoading && (
+                  <Paper elevation={1} sx={{ p: 2, backgroundColor: 'background.paper' }}>
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                      <CircularProgress size={20} />
+                      <Typography>Daisy is thinking...</Typography>
+                    </Stack>
+                  </Paper>
+                )}
+                <div ref={messagesEndRef} />
+              </Stack>
+            </Box>
+
+            {/* Input Form */}
+            <Paper elevation={2} sx={{ p: 2 }}>
+              <Box component="form" onSubmit={sendMessage}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <TextField
+                    fullWidth
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={isListening ? "Listening..." : "What are you looking for?"}
+                    disabled={isLoading || isListening}
+                    variant="outlined"
+                    size="medium"
+                  />
+                  
+                  <IconButton 
+                    onClick={isListening ? stopListening : startListening}
+                    disabled={isLoading}
+                    color={isListening ? 'secondary' : 'default'}
+                    sx={{ p: 1.5 }}
+                  >
+                    {isListening ? <MicOffIcon /> : <MicIcon />}
+                  </IconButton>
+                  
+                  <Button
+                    type="submit"
+                    disabled={isLoading || !input.trim()}
+                    variant="contained"
+                    size="large"
+                    endIcon={<SendIcon />}
+                    sx={{ px: 3 }}
+                  >
+                    Send
+                  </Button>
+                </Stack>
+              </Box>
+            </Paper>
+          </Box>
+        </Container>
+      </Box>
+    </ThemeProvider>
   )
 }
 

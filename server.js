@@ -427,13 +427,12 @@ async function analyzeWithAI(products, userQuery, sessionId = null) {
   // Final Fisher-Yates shuffle
   shuffled = fisherYatesShuffle(shuffled);
   
-  // Take a larger, random slice from different parts of the array
+  // Take exactly 2 products for the AI to analyze - this ensures perfect matching
+  // The AI can only recommend these 2 products, so they will always match the cards
   const totalProducts = shuffled.length;
-  const sliceSize = Math.min(25, Math.max(15, Math.floor(totalProducts * 0.4))); // Take 40% but at least 15, max 25
-  const maxStartIndex = Math.max(0, totalProducts - sliceSize);
-  const startIndex = Math.floor(Math.random() * (maxStartIndex + 1));
+  const startIndex = Math.floor(Math.random() * Math.max(0, totalProducts - 2));
   
-  console.log(`Taking ${sliceSize} products from index ${startIndex} out of ${totalProducts} total (time seed: ${timeSeed})`);
+  console.log(`Selecting exactly 2 products from index ${startIndex} out of ${totalProducts} total for AI analysis`);
   
   // Safety check: if no products after all filtering, fall back to broader selection BUT maintain category
   if (shuffled.length === 0) {
@@ -456,7 +455,8 @@ async function analyzeWithAI(products, userQuery, sessionId = null) {
     }
   }
   
-  const productsToSend = shuffled.slice(startIndex, startIndex + sliceSize).map(p => ({
+  // Take exactly 2 products - this guarantees AI recommendations match product cards
+  const productsToSend = shuffled.slice(startIndex, startIndex + 2).map(p => ({
     name: p.name,
     brand: p.brand,
     kind: p.kind,
@@ -476,100 +476,46 @@ async function analyzeWithAI(products, userQuery, sessionId = null) {
     image: p.image_urls?.[0] || p.image || null
   }));
   
-  console.log(`Final products to send to AI: ${productsToSend.length}`);
+  console.log(`Final products to send to AI: ${productsToSend.length} (exactly 2 for perfect matching)`);
   if (productsToSend.length > 0) {
-    console.log(`Product names: ${productsToSend.map(p => p.name).slice(0, 5).join(', ')}${productsToSend.length > 5 ? '...' : ''}`);
+    console.log(`Product names: ${productsToSend.map(p => p.name).join(', ')}`);
   }
 
   const systemPrompt = `You are Daisy Flowers from Beyond Hello, an expert budtender with deep knowledge of cannabis science, terpene profiles, and product analysis.
 
-EXTENDED THINKING PROCESS:
-Before making any recommendations, work through this structured analysis:
+CRITICAL REQUIREMENT: You will be given EXACTLY 2 products to analyze and recommend. These are the ONLY products you can recommend - your text recommendations MUST match these exact products.
 
-<thinking>
-1. QUERY ANALYSIS:
-   - What is the user really asking for? (category, effects, experience level, etc.)
-   - Are there multiple needs or preferences mentioned?
-   - What's the primary goal vs. secondary considerations?
+INTERNAL THINKING PROCESS (DO NOT INCLUDE IN RESPONSE):
+Before responding, mentally work through this analysis but DO NOT include it in your response:
 
-2. PRODUCT ASSESSMENT:
-   - Review each product's complete profile (THC/CBD, terpenes, effects, flavors)
-   - Cross-reference terpene profiles with desired effects
-   - Consider onset time, duration, and intensity factors
-   - Analyze product synergies and complementary options
-
-3. USER MATCHING:
-   - Experience level indicators (beginner vs. experienced)
-   - Time of day preferences (morning, afternoon, evening)
-   - Consumption method preferences
-   - Budget considerations from available sizes/pricing
-
-4. COMPLEX CONSIDERATIONS:
-   - Terpene entourage effects for desired outcomes
-   - Product format optimization (flower vs. edible vs. vape for use case)
-   - Potential product combinations or progression recommendations
-   - Brand quality and consistency factors
-
-5. SELECTION LOGIC:
-   - Primary recommendation based on best match
-   - Secondary option offering variety or alternative approach
-   - Reasoning for why these specific products over others
-</thinking>
+1. QUERY ANALYSIS: Understand what the user is asking for
+2. PRODUCT ASSESSMENT: Review both products' profiles and effects  
+3. USER MATCHING: Consider experience level and preferences
+4. COMPLEX CONSIDERATIONS: Think about terpenes and timing
+5. SELECTION LOGIC: Why these 2 products work for this user
 
 CRITICAL BRAND REQUIREMENT: 
 YOU MUST ONLY recommend products from these brands: Hijinks, Lab, Nira+, Flower Foundry, Seche, Tasteology
 
-DEEP PRODUCT ANALYSIS:
-For complex queries, analyze products across multiple dimensions:
-- TERPENE PROFILES: Match dominant terpenes to desired effects
-  * Myrcene: Sedating, muscle relaxation
-  * Limonene: Mood elevation, stress relief  
-  * Caryophyllene: Anti-inflammatory, calming
-  * Pinene: Alertness, memory retention
-  * Linalool: Calming, sleep promotion
-  * Humulene: Appetite suppression, alertness
-- CANNABINOID RATIOS: THC:CBD balance for different effects
-- CONSUMPTION TIMING: Onset and duration considerations
-- SYNERGY POTENTIAL: How products might complement each other
-
-PRODUCT DATA STRUCTURE:
-Each product contains comprehensive data including:
-- name, brand, kind, kind_subtype
-- type/lineage (hybrid, indica, sativa)
-- percent_thc, percent_cbd, terpene data
-- description, store_notes (detailed terpene/effect info)
-- effects array, flavors array
-- pricing across different sizes
-- available consumption methods
-
-ENHANCED SELECTION STRATEGY:
-1. Deep dive into user intent and context clues
-2. Cross-reference terpene profiles with scientific effect data
-3. Consider consumption method optimization
-4. Factor in experience level and tolerance
-5. Balance primary effects with secondary benefits
-6. Optimize timing and lifestyle fit
-7. Provide educational context for choices
-
-ANSWERING STYLE: 
-- Always say "let me take a look and see what we can find" or similar
-- For complex queries, briefly explain your reasoning process
-- Mention specific terpenes and effects when relevant
-- Keep responses focused but informative
+RESPONSE STYLE: 
+- Always start with "Let me take a look and see what we can find" or similar
+- Be conversational and helpful, not clinical
+- Mention specific product names in your recommendations
+- Explain why each product is great for their needs
+- Keep responses concise and engaging
 - Never use medical terms - use compliant language
-- End with disclaimer
-
-COMPLEX QUERY EXAMPLES:
-- Multi-effect needs: "I want something energizing but not anxious"
-- Timing considerations: "Something for creative work during the day"
-- Experience optimization: "I'm new but want something effective"
-- Lifestyle integration: "Party-friendly but functional"
+- End with: "This isn't medical advice. Availability may vary by store."
 
 OUTPUT FORMAT: 
-- Brief acknowledgment + "let me analyze what we have"
-- Concise explanation of selection reasoning
-- 2 product recommendations with key differentiators
-- End with: "This isn't medical advice. Availability may vary by store."`
+- Brief friendly acknowledgment 
+- Recommend BOTH products by name with reasons why each is perfect
+- End with disclaimer
+
+IMPORTANT: 
+- DO NOT include any <thinking> tags or internal analysis in your response
+- DO NOT show your reasoning process - just give confident recommendations
+- You must recommend BOTH products given to you by name
+- Keep it conversational and natural like a friendly budtender`
 
   const userPrompt = `User Question: ${userQuery}
 
@@ -582,10 +528,12 @@ Query Complexity Analysis:
 - Avoidance Terms: ${complexity.indicators.avoidanceTerms ? 'Yes' : 'No'}
 - Intensity Preferences: ${complexity.indicators.intensityPrefs ? 'Yes' : 'No'}
 
-Products Available (ONLY ${categoryFilter ? categoryFilter.toUpperCase() : 'approved brands'}):
+EXACTLY 2 Products to Recommend (ONLY ${categoryFilter ? categoryFilter.toUpperCase() : 'approved brands'}):
 ${JSON.stringify(productsToSend, null, 2)}
 
-${complexity.score >= 3 ? 'Use your full extended thinking process to thoroughly analyze this complex request.' : 'Use structured analysis appropriate for this query complexity.'} Pick the best 2 products and explain your reasoning.`
+${complexity.score >= 3 ? 'Use your full extended thinking process to thoroughly analyze this complex request.' : 'Use structured analysis appropriate for this query complexity.'} 
+
+CRITICAL: You must recommend BOTH of these products by name. Explain why each one is perfect for the user's needs. These are the only 2 products available to recommend.`
 
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify({
@@ -619,11 +567,10 @@ ${complexity.score >= 3 ? 'Use your full extended thinking process to thoroughly
         try {
           const response = JSON.parse(data);
           if (response.content && response.content[0] && response.content[0].text) {
-            // Use the first 2 products that the AI analyzed - no more random shuffling!
-            // This ensures the AI's recommendations match the products returned
-            const selectedProducts = productsToSend.slice(0, 2);
+            // Return the exact 2 products that were analyzed - perfect 1:1 matching guaranteed!
+            const selectedProducts = productsToSend; // These are already exactly 2 products
             
-            console.log(`Final selection (matching AI analysis): ${selectedProducts.map(p => p.name).join(', ')}`);
+            console.log(`Final selection (perfect AI match): ${selectedProducts.map(p => p.name).join(', ')}`);
             
             // Track shown products in session
             if (sessionMemory) {
