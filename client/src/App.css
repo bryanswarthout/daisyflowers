@@ -199,6 +199,211 @@
     font-size: 1.5rem;
   }
 
+  .avatar {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .mouth-overlay {
+    bottom: 58%;
+    left: 51%;
+    width: 10px;
+    height: 6px;
+  }
+
+  .floating-avatar {
+    width: 70px !important;
+    height: 70px !important;
+    bottom: 20px !important;
+    right: 20px !important;
+  }
+
+  .floating-avatar-inner {
+    width: 70px;
+    height: 70px;
+  }
+
+  .floating-avatar-image {
+    width: 70px;
+    height: 70px;
+  }
+
+  .floating-mouth-overlay {
+    width: 6px;
+    height: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .avatar {
+    width: 120px;
+    height: 120px;
+  }
+
+  .floating-avatar {
+    width: 60px !important;
+    height: 60px !important;
+    bottom: 15px !important;
+    right: 15px !important;
+  }
+
+  .floating-avatar-inner {
+    width: 60px;
+    height: 60px;
+  }
+
+  .floating-avatar-image {
+    width: 60px;
+    height: 60px;
+  }
+}
+
+/* Floating Avatar Styles */
+.floating-avatar {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 80px;
+  height: 80px;
+  z-index: 1000;
+  cursor: pointer;
+  animation: floatingEnter 0.6s ease-out;
+  border-radius: 50%;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+  transition: all 0.3s ease;
+}
+
+.floating-avatar:hover {
+  transform: scale(1.1);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+}
+
+.floating-avatar-inner {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  animation: floatingFloat 2.5s ease-in-out infinite;
+}
+
+.floating-avatar-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 50%;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.floating-avatar.speaking .floating-avatar-image {
+  animation: floatingBobble 0.4s ease-in-out infinite;
+}
+
+.floating-mouth-overlay {
+  position: absolute;
+  bottom: 58%;
+  left: 51%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 5px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.floating-mouth-animation {
+  width: 100%;
+  height: 100%;
+  background: rgba(180, 100, 100, 0.8);
+  border-radius: 50% 50% 60% 60%;
+  opacity: 0;
+  transition: all 0.08s ease;
+}
+
+.floating-avatar.speaking .floating-mouth-animation {
+  animation: floating-mouth-talk 0.3s ease-in-out infinite;
+  opacity: 1;
+}
+
+.floating-avatar-pulse {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(45, 122, 95, 0.3);
+  z-index: 1;
+  opacity: 0;
+}
+
+.floating-avatar.speaking .floating-avatar-pulse {
+  animation: floatingPulse 1s ease-out infinite;
+}
+
+/* Floating Avatar Animations */
+@keyframes floatingEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(100px) scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes floatingFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes floatingBobble {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes floating-mouth-talk {
+  0% { 
+    transform: scaleY(0.3) scaleX(1);
+    opacity: 0.4;
+    border-radius: 60% 60% 40% 40%;
+  }
+  25% { 
+    transform: scaleY(1) scaleX(1.1);
+    opacity: 0.8;
+    border-radius: 50% 50% 60% 60%;
+  }
+  50% { 
+    transform: scaleY(1.2) scaleX(0.9);
+    opacity: 0.9;
+    border-radius: 40% 40% 70% 70%;
+  }
+  75% { 
+    transform: scaleY(0.8) scaleX(1.1);
+    opacity: 0.7;
+    border-radius: 50% 50% 60% 60%;
+  }
+  100% { 
+    transform: scaleY(0.3) scaleX(1);
+    opacity: 0.4;
+    border-radius: 60% 60% 40% 40%;
+  }
+}
+
+@keyframes floatingPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
   .chat-container {
     padding: 0.5rem;
   }

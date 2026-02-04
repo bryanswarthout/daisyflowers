@@ -77,8 +77,10 @@ function App() {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false)
   const [typewriterText, setTypewriterText] = useState('')
   const [isTypewriting, setIsTypewriting] = useState(false)
+  const [showFloatingAvatar, setShowFloatingAvatar] = useState(false)
   const messagesEndRef = useRef(null)
   const typewriterRef = useRef(null)
+  const avatarRef = useRef(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -87,6 +89,50 @@ function App() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // Floating avatar scroll detection
+  useEffect(() => {
+    const handleScroll = () => {
+      if (avatarRef.current) {
+        const avatarRect = avatarRef.current.getBoundingClientRect()
+        const isAvatarVisible = avatarRect.top >= -avatarRect.height && avatarRect.bottom <= window.innerHeight + avatarRect.height
+        setShowFloatingAvatar(!isAvatarVisible)
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    // Also check on resize
+    window.addEventListener('resize', handleScroll)
+    // Check initial state
+    handleScroll()
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', handleScroll)
+    }
+  }, [])
+
+  // Floating avatar scroll detection
+  useEffect(() => {
+    const handleScroll = () => {
+      if (avatarRef.current) {
+        const avatarRect = avatarRef.current.getBoundingClientRect()
+        const isAvatarVisible = avatarRect.top >= -avatarRect.height && avatarRect.bottom <= window.innerHeight + avatarRect.height
+        setShowFloatingAvatar(!isAvatarVisible)
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    // Also check on resize
+    window.addEventListener('resize', handleScroll)
+    // Check initial state
+    handleScroll()
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', handleScroll)
+    }
+  }, [])
 
   useEffect(() => {
     // Load voices when component mounts
@@ -430,7 +476,7 @@ function App() {
           <Container maxWidth="lg">
             <Box sx={{ py: 3, textAlign: 'center' }}>
               {/* Restored Original Avatar Container */}
-              <Box sx={{ mb: 2 }}>
+              <Box sx={{ mb: 2 }} ref={avatarRef}>
                 <div className="avatar-container">
                   <div className={`avatar ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
                     <img 
@@ -635,6 +681,23 @@ function App() {
           </Box>
         </Container>
       </Box>
+      
+      {/* Floating Avatar */}
+      {showFloatingAvatar && (
+        <div className={`floating-avatar ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
+          <div className="floating-avatar-inner">
+            <img 
+              src="/girl.png" 
+              alt="Daisy Flowers" 
+              className="floating-avatar-image"
+            />
+            <div className="floating-mouth-overlay">
+              <div className="floating-mouth-animation"></div>
+            </div>
+            <div className="floating-avatar-pulse"></div>
+          </div>
+        </div>
+      )}
     </ThemeProvider>
   )
 }
