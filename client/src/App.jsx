@@ -32,31 +32,108 @@ import './App.css'
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#2e7d32', // Cannabis green
-      light: '#66bb6a',
-      dark: '#1b5e20',
+      main: '#1a4d3a', // Beyond Hello deep green
+      light: '#2e7d32',
+      dark: '#0f3c28',
     },
     secondary: {
-      main: '#f06292', // Daisy pink
-      light: '#f8bbd9',
-      dark: '#e91e63',
+      main: '#d4a574', // Warm gold accent
+      light: '#e8c4a0',
+      dark: '#b8956b',
+    },
+    success: {
+      main: '#4caf50',
+      light: '#81c784',
+      dark: '#388e3c',
     },
     background: {
-      default: '#f8f9fa',
-      paper: '#ffffff',
+      default: '#f5f7f4', // Soft green-tinted background
+      paper: '#fefefe',
+    },
+    grey: {
+      50: '#f8faf7',
+      100: '#f1f5ef',
+      200: '#e8f0e4',
+      300: '#d5e7d0',
+      400: '#b8d4b0',
+      500: '#95c088',
+      600: '#7a9e6d',
+      700: '#618056',
+      800: '#4a6142',
+      900: '#384a32',
     },
   },
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
     h4: {
       fontWeight: 600,
+      color: '#1a4d3a',
     },
     h6: {
       fontWeight: 500,
+      color: '#2e7d32',
+    },
+    body1: {
+      color: '#2c3e35',
+    },
+    body2: {
+      color: '#4a6142',
     },
   },
   shape: {
     borderRadius: 12,
+  },
+  components: {
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: 'linear-gradient(135deg, #ffffff 0%, #f8faf7 100%)',
+          boxShadow: '0 4px 20px rgba(26, 77, 58, 0.1)',
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        contained: {
+          background: 'linear-gradient(135deg, #1a4d3a 0%, #2e7d32 100%)',
+          boxShadow: '0 4px 15px rgba(26, 77, 58, 0.3)',
+          '&:hover': {
+            background: 'linear-gradient(135deg, #0f3c28 0%, #1b5e20 100%)',
+            boxShadow: '0 6px 20px rgba(26, 77, 58, 0.4)',
+          },
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8faf7 100%)',
+          border: '1px solid rgba(26, 77, 58, 0.08)',
+          '&:hover': {
+            boxShadow: '0 8px 30px rgba(26, 77, 58, 0.15)',
+            borderColor: 'rgba(26, 77, 58, 0.2)',
+          },
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            backgroundColor: '#ffffff',
+            '& fieldset': {
+              borderColor: 'rgba(26, 77, 58, 0.23)',
+            },
+            '&:hover fieldset': {
+              borderColor: 'rgba(26, 77, 58, 0.5)',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: '#1a4d3a',
+            },
+          },
+        },
+      },
+    },
   },
 })
 
@@ -472,7 +549,26 @@ function App() {
       <CssBaseline />
       <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
         {/* Header */}
-        <Paper elevation={2} sx={{ mb: 2 }}>
+        <Paper 
+          elevation={3} 
+          className="header-paper"
+          sx={{ 
+            mb: 2,
+            background: 'linear-gradient(135deg, #1a4d3a 0%, #2e7d32 100%) !important',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'radial-gradient(circle at 30% 70%, rgba(212, 165, 116, 0.1) 0%, transparent 50%)',
+              pointerEvents: 'none',
+            }
+          }}
+        >
           <Container maxWidth="lg">
             <Box sx={{ py: 3, textAlign: 'center' }}>
               {/* Restored Original Avatar Container */}
@@ -492,10 +588,10 @@ function App() {
                 </div>
               </Box>
               
-              <Typography variant="h4" component="h1" gutterBottom color="primary">
+              <Typography variant="h4" component="h1" gutterBottom sx={{ color: 'white', fontWeight: 700 }}>
                 🌼 Daisy Flowers
               </Typography>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
+              <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.9)', mb: 2 }}>
                 Your AI Budtender from Beyond Hello
               </Typography>
               
@@ -524,12 +620,20 @@ function App() {
                       elevation={1}
                       sx={{
                         p: 2,
-                        backgroundColor: msg.role === 'user' ? 'primary.light' : 'background.paper',
-                        color: msg.role === 'user' ? 'white' : 'text.primary',
+                        background: msg.role === 'user' 
+                          ? 'linear-gradient(135deg, #1a4d3a 0%, #2e7d32 100%)'
+                          : 'linear-gradient(145deg, #fefefe 0%, #f5f7f4 100%)',
+                        color: msg.role === 'user' ? 'white' : '#2c3e35',
+                        border: msg.role === 'user' 
+                          ? '1px solid rgba(26, 77, 58, 0.3)'
+                          : '1px solid rgba(26, 77, 58, 0.1)',
                         ml: msg.role === 'user' ? 'auto' : 0,
                         mr: msg.role === 'user' ? 0 : 'auto',
                         maxWidth: msg.role === 'user' ? '70%' : '100%',
-                        width: msg.role === 'assistant' ? '100%' : 'auto'
+                        width: msg.role === 'assistant' ? '100%' : 'auto',
+                        boxShadow: msg.role === 'user'
+                          ? '0 4px 15px rgba(26, 77, 58, 0.25)'
+                          : '0 2px 10px rgba(26, 77, 58, 0.08)',
                       }}
                     >
                       <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
@@ -631,10 +735,17 @@ function App() {
                 ))}
                 
                 {isLoading && (
-                  <Paper elevation={1} sx={{ p: 2, backgroundColor: 'background.paper' }}>
+                  <Paper 
+                    elevation={1} 
+                    sx={{ 
+                      p: 2, 
+                      background: 'linear-gradient(145deg, #f5f7f4 0%, #e8f0e4 100%)',
+                      border: '1px solid rgba(26, 77, 58, 0.15)',
+                    }}
+                  >
                     <Stack direction="row" alignItems="center" spacing={2}>
-                      <CircularProgress size={20} />
-                      <Typography>Daisy is thinking...</Typography>
+                      <CircularProgress size={20} sx={{ color: '#1a4d3a' }} />
+                      <Typography sx={{ color: '#2c3e35' }}>Daisy is thinking...</Typography>
                     </Stack>
                   </Paper>
                 )}
@@ -643,7 +754,15 @@ function App() {
             </Box>
 
             {/* Input Form */}
-            <Paper elevation={2} sx={{ p: 2 }}>
+            <Paper 
+              elevation={3} 
+              sx={{ 
+                p: 2,
+                background: 'linear-gradient(145deg, #fefefe 0%, #f5f7f4 100%)',
+                border: '1px solid rgba(26, 77, 58, 0.1)',
+                borderTop: '2px solid #d4a574',
+              }}
+            >
               <Box component="form" onSubmit={sendMessage}>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <TextField
