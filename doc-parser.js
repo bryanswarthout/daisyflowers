@@ -44,13 +44,13 @@ const documentCache = new Map();
  * Parse a PDF file and return its text content
  */
 async function parsePDF(filePath) {
-  const pdfParse = require('pdf-parse');
+  const { PDFParse } = require('pdf-parse');
   const dataBuffer = fs.readFileSync(filePath);
-  const data = await pdfParse(dataBuffer);
+  const parser = new PDFParse({ data: dataBuffer });
+  const result = await parser.getText();
   return {
-    text: data.text,
-    numPages: data.numpages,
-    info: data.info,
+    text: result.text,
+    numPages: result.total,
   };
 }
 

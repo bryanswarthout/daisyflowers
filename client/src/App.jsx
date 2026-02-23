@@ -492,12 +492,18 @@ function App() {
     setIsLoading(true)
 
     try {
+      // Build conversation history for context (last 10 exchanges max)
+      const history = messages
+        .filter(m => m.content && (m.role === 'user' || m.role === 'assistant'))
+        .slice(-10)
+        .map(m => ({ role: m.role, content: m.content }))
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: userMessage })
+        body: JSON.stringify({ message: userMessage, history })
       })
 
       const data = await response.json()
@@ -706,7 +712,7 @@ function App() {
 
                                   {product.price && (
                                     <Typography variant="h6" color="primary" gutterBottom>
-                                      ${product.price}
+                                      {product.price}
                                     </Typography>
                                   )}
 

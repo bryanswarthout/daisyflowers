@@ -158,49 +158,22 @@ async function getAllProducts() {
 
 // Function to generate correct Beyond Hello product URL
 function generateProductUrl(product) {
-  // Use product_id (not id) and the existing path as base
+  const BASE_URL = 'https://beyond-hello.com/pennsylvania-dispensaries/bristol/medical-menu/menu/products';
+  
   const productId = product.product_id;
+  if (!productId) return null;
   
-  if (!productId) {
-    return null;
-  }
+  // Build slug from brand + name (matches Beyond Hello's actual URL pattern)
+  // Example: brand="Tasteology", name="Blueberry 5mg | 40pk (200mg)"
+  //   → "tasteology-blueberry-5mg-40pk-200mg"
+  const parts = [product.brand, product.name].filter(Boolean);
+  const slug = parts.join(' ').toLowerCase()
+    .replace(/[™®]+/g, '')           // Remove trademark symbols
+    .replace(/[^a-z0-9]+/g, '-')     // Replace all non-alphanumeric with hyphens
+    .replace(/-+/g, '-')             // Collapse multiple hyphens
+    .replace(/^-+|-+$/g, '');        // Trim leading/trailing hyphens
   
-  // If there's an existing path, extract the slug from it and use product_id
-  if (product.path && product.path.includes('/')) {
-    const pathParts = product.path.split('/');
-    if (pathParts.length >= 3) {
-      // path format is usually "products/12345/slug-here"
-      const existingSlug = pathParts.slice(2).join('/'); // Get everything after "products/12345/"
-      return `https://beyond-hello.com/pennsylvania-dispensaries/bristol/medical-menu/menu/products/${productId}/${existingSlug}`;
-    }
-  }
-  
-  // Fallback: generate slug from brand and name if no existing path
-  let slug = '';
-  
-  if (product.brand) {
-    slug = product.brand.toLowerCase()
-      .replace(/[™®]/g, '') // Remove trademark symbols
-      .replace(/[^a-z0-9]/g, '-') // Replace non-alphanumeric with hyphens
-      .replace(/-+/g, '-') // Replace multiple hyphens with single
-      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-  }
-  
-  if (product.name) {
-    const namePart = product.name.toLowerCase()
-      .replace(/[™®]/g, '') // Remove trademark symbols
-      .replace(/[^a-z0-9]/g, '-') // Replace non-alphanumeric with hyphens
-      .replace(/-+/g, '-') // Replace multiple hyphens with single
-      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-    
-    if (slug && namePart) {
-      slug += '-' + namePart;
-    } else {
-      slug = namePart || `product-${productId}`;
-    }
-  }
-  
-  return `https://beyond-hello.com/pennsylvania-dispensaries/bristol/medical-menu/menu/products/${productId}/${slug}`;
+  return `${BASE_URL}/${productId}/${slug || `product-${productId}`}`;
 }
 
 // Session management
@@ -642,7 +615,7 @@ function validateAIResponse(responseText, validProductNames) {
 }
 
 // Function to analyze with AI
-async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = false) {
+async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = false, conversationHistory = []) {
   // STEP 1 — Extract intent
   const intent = extractUserIntent(userQuery);
   console.log('User intent:', JSON.stringify(intent));
@@ -686,7 +659,7 @@ async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = fa
       console.log(`Sending specific product to Claude: ${productSummary}`);
       
       const productLookup = new Map();
-      productLookup.set(specificMatches[0].product_id, specificMatches[0]);
+      productLookup.set(String(specificMatches[0].product_id), specificMatches[0]);
       productLookup.set(specificMatches[0].name.toLowerCase(), specificMatches[0]);
       
       // TODO: Handle specific product AI call in next prompt
@@ -766,36 +739,46 @@ async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = fa
 
 
   // STEP 8 — Keep the full product objects in a lookup map for later
+  // IMPORTANT: Store product_id as STRING because regex extraction returns strings
   const productLookup = new Map();
   finalProducts.forEach(sp => {
-    productLookup.set(sp.product.product_id, sp.product);
+    productLookup.set(String(sp.product.product_id), sp.product);
     productLookup.set(sp.product.name.toLowerCase(), sp.product);
   });
 
   // STEP 9 — Build the system prompt (COMPLETELY NEW)
-  const systemPrompt = `You are Daisy Flowers, a knowledgeable and friendly budtender at Beyond Hello dispensary in Bristol, PA.
+  const systemPrompt = `You are Daisy Flowers, a passionate and knowledgeable budtender at Beyond Hello dispensary in Bristol, PA. You genuinely love cannabis culture and enjoy helping people find the perfect product.
 
-YOUR JOB: Customers ask you questions about cannabis products. You will receive the store's full product list. Your job is to SELECT the 2-3 best products for the customer and explain why.
+YOUR PERSONALITY & TONE:
+- You sound like a real budtender having a conversation — warm, enthusiastic, and approachable.
+- You get excited about great products and deals: "Ya that is one heck of a deal!", "Nice! Fresh flower is always exciting to see.", "I love it!"
+- You educate naturally, not clinically. Weave in knowledge about terpenes, minor cannabinoids (CBD, CBN), and lineage as part of the conversation — not as bullet points.
+- Use cannabis-culture language: "true to plant experience", "rich terpene profiles", "sativa leaning", "minor cannabinoids", "full spectrum".
+- Acknowledge that cannabis is personal: "everyone is unique and what might feel energizing to you could feel completely different to someone else."
+- Proactively offer to help more: "I'd be happy to walk you through the differences", "I can narrow it down if you want", "let me know if you want to explore more options."
+- Put effect descriptors in quotes for emphasis: "uplifting and energizing", "relaxing and calming", "true to plant".
+- When relevant, break things down by category (sativa/indica/hybrid) and explain the general differences naturally.
+
+YOUR JOB: Customers ask you questions about cannabis products. You will receive the store's current product list. Select the 2-3 best products and explain why they're a great fit — like you're standing right there at the counter with them.
 
 ABSOLUTE RULES:
 1. ONLY recommend products from the numbered list provided. Use the EXACT product name as shown. Never invent or guess product names.
 2. SELECT 2-3 products that genuinely match the customer's needs. Do NOT recommend all products.
-3. PREFER products tagged [DEAL: X% OFF] when they are a good match — customers love savings! Mention the deal.
+3. PREFER products tagged [DEAL: X% OFF] when they are a good match — customers love savings! Get excited about the deal.
 4. If NO products are a great match, say so honestly and recommend the closest options.
-5. For each recommendation, explain WHY it fits — mention its terpene profile, lineage (indica/sativa/hybrid), and THC percentage.
-6. If a product has an active deal or special, ALWAYS mention it! This is important for customer satisfaction.
-7. Never make medical claims. Never say "treat", "cure", "prescribe", or "medicate". Use words like "may help with", "known for", "people often choose this for".
-8. Always end with: "This isn't medical advice. Availability may vary by store."
+5. For each recommendation, weave in WHY it fits — mention its terpene profile, lineage, THC percentage, or minor cannabinoids naturally in conversation.
+6. If a product has an active deal or special, ALWAYS mention it enthusiastically.
+7. Never make medical claims. Never say "treat", "cure", "prescribe", or "medicate". Instead say things like "most folks find these strains to be more relaxing", "has been associated with", "generally speaking", "people often choose this for".
+8. End with a brief, natural-sounding note: "Just remember, this isn't medical advice — everyone's experience is unique and availability may vary by store."
 
-RESPONSE FORMAT:
-- Start with a brief warm greeting (1 sentence, vary it naturally — don't always say the same thing)
-- For each recommended product: the product name (exactly as listed), why it's a good fit, one specific terpene or cannabinoid detail
-- Mention any relevant deals, specials, or promotions
-- The disclaimer
+RESPONSE STYLE:
+- Open with genuine enthusiasm that matches the question — not a generic greeting. React to what they asked about.
+- Talk about products the way a real budtender would — share what makes them special, what the experience is like, why you'd recommend them.
+- When it makes sense, offer extra context: explain the difference between live resin and distillate, why minor cannabinoids matter for sleep, how terpene profiles shape the experience, etc.
+- Pull in extra options when helpful (e.g., "I also grabbed a couple sativa-leaning hybrids to give you a bigger selection").
+- Keep it conversational and human — 2-4 sentences per product, no bullet-point lists.
 
-CRITICAL: After each product name you recommend, include its product_id in brackets like this: [ID:48743]. This is required for our system to match your recommendations to product cards. Do not skip this.
-
-Keep it conversational — you're a friendly budtender, not writing an essay. 3-4 sentences per product max.`;
+CRITICAL: After each product name you recommend, include its product_id in brackets like this: [ID:48743]. This is required for our system to match your recommendations to product cards. Do not skip this.`;
 
   // STEP 10 — Build the user prompt
   let userPrompt = `Customer question: "${userQuery}"
@@ -804,7 +787,7 @@ Here is our current product inventory. Products tagged [DEAL: X% OFF] have activ
 
 ${productSummaries.join('\n')}
 
-Remember: Pick the products that best match what the customer is asking for. When products with active deals are a good fit, prefer those and mention the savings. Use EXACT product names from the list above and include the [ID:product_id] after each recommended product name.`;
+Remember: Pick the products that best match what the customer is asking for. When products with active deals are a good fit, prefer those and mention the savings. Use EXACT product names from the list above and include the [ID:product_id] after each recommended product name. Write your response in a warm, conversational budtender style — not robotic or listy.`;
   
   // Add retry instruction if this is a retry attempt
   if (isRetry) {
@@ -823,7 +806,15 @@ Remember: Pick the products that best match what the customer is asking for. Whe
           cache_control: { type: "ephemeral" }
         }
       ],
-      messages: [{ role: 'user', content: userPrompt }]
+      messages: [
+        // Include conversation history for follow-up context (last 10 exchanges)
+        ...(Array.isArray(conversationHistory) ? conversationHistory.slice(-10) : []).map(m => ({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: String(m.content || '').substring(0, 500)
+        })),
+        // Current user prompt with full product context
+        { role: 'user', content: userPrompt }
+      ]
     });
 
     const options = {
@@ -872,7 +863,7 @@ Remember: Pick the products that best match what the customer is asking for. Whe
             // Fallback: if no IDs were matched, try fuzzy name matching
             if (matchedProducts.length === 0) {
               console.log('No ID matches found, trying fuzzy name matching...');
-              for (const scoredProduct of finalProducts.slice(0, 5)) { // Check top 5 scored products
+              for (const scoredProduct of finalProducts) { // Check all scored products
                 const productName = scoredProduct.product.name;
                 if (responseText.toLowerCase().includes(productName.toLowerCase())) {
                   const product = scoredProduct.product;
@@ -928,10 +919,10 @@ Remember: Pick the products that best match what the customer is asking for. Whe
 }
 
 // Wrapper function with retry logic and graceful fallback
-async function analyzeWithAIWithRetry(products, userQuery, sessionId = null) {
+async function analyzeWithAIWithRetry(products, userQuery, sessionId = null, history = []) {
   try {
     // First attempt
-    const result = await analyzeWithAI(products, userQuery, sessionId);
+    const result = await analyzeWithAI(products, userQuery, sessionId, false, history);
     
     // Check if we got product matches or if retry is needed
     const needsRetry = result.products.length === 0 && 
@@ -941,7 +932,7 @@ async function analyzeWithAIWithRetry(products, userQuery, sessionId = null) {
       console.log('No products matched, retrying with more explicit prompt...');
       
       // Retry once with more explicit instructions
-      const retryResult = await analyzeWithAI(products, userQuery, sessionId, true);
+      const retryResult = await analyzeWithAI(products, userQuery, sessionId, true, history);
       
       if (retryResult.products.length > 0) {
         console.log('Retry successful!');
@@ -1028,7 +1019,7 @@ app.post('/api/chat', async (req, res) => {
   console.log('=== /api/chat endpoint called ===');
   
   try {
-    let { message } = req.body;
+    let { message, history } = req.body;
     console.log('✅ Request body parsed successfully');
     
     if (!message) {
@@ -1087,7 +1078,7 @@ app.post('/api/chat', async (req, res) => {
     console.log('🤖 Starting AI analysis...');
     
     // First attempt
-    let result = await analyzeWithAIWithRetry(products, message, sessionId);
+    let result = await analyzeWithAIWithRetry(products, message, sessionId, history);
     console.log('✅ AI analysis complete');
 
     console.log('✅ Sending response...');
