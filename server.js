@@ -4,8 +4,10 @@ const cors = require('cors');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const { scrapeMenu, buildMenuContext, annotateProductsWithDeals } = require('./menu-scraper');
+const { buildDocumentContext } = require('./doc-parser');
 
-// Architecture: User query → extractUserIntent → scoreProduct (all products) → send ALL to Claude → Claude selects 2-3 → match back to product cards
+// Architecture: User query → extractUserIntent → scoreProduct (all products) → enrich with live menu data → send ALL to Claude → Claude selects 2-3 → match back to product cards
 
 // Add process error handlers to prevent crashes
 process.on('uncaughtException', (error) => {
@@ -721,12 +723,47 @@ async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = fa
     }
   }
 
+  // STEP 6.5 — Enrich with live menu data (deals + specials context) and document knowledge
+  let liveMenuContext = '';
+  let dealMap = null;
+  try {
+    const [menuContext, menuData, docContext] = await Promise.all([
+      buildMenuContext(),
+      scrapeMenu(),
+      buildDocumentContext(userQuery),
+    ]);
+    liveMenuContext = menuContext + (docContext || '');
+    dealMap = menuData.deal_map;
+    
+    // Boost scores for products that have active deals/specials
+    if (dealMap && dealMap.size > 0) {
+      finalProducts.forEach(sp => {
+        const pid = String(sp.product.product_id);
+        const deal = dealMap.get(pid);
+        if (deal) {
+          sp.score += 1.5; // Boost products with active deals
+          sp.product._deal_info = deal; // Attach deal info for summary building
+        }
+      });
+      // Re-sort after boosting
+      finalProducts.sort((a, b) => b.score - a.score);
+      console.log(`Live menu: ${dealMap.size} products have active deals, boosted scores`);
+    }
+  } catch (err) {
+    console.warn('Live menu scrape failed (continuing without):', err.message);
+  }
+
   // STEP 7 — Build compact summaries for ALL scored products (send them ALL to Claude)
   const productSummaries = finalProducts
     .filter(sp => sp.score >= 0) // include all, even score 0 when no intent detected
-    .map((sp, index) => `${index + 1}. ${buildCompactSummary(sp.product)}`);
+    .map((sp, index) => {
+      const dealInfo = sp.product._deal_info;
+      const dealTag = dealInfo ? ` [DEAL: ${dealInfo.discount}]` : '';
+      return `${index + 1}. ${buildCompactSummary(sp.product)}${dealTag}`;
+    });
 
   console.log(`Sending ${productSummaries.length} products to Claude for selection`);
+
 
   // STEP 8 — Keep the full product objects in a lookup map for later
   const productLookup = new Map();
@@ -743,14 +780,17 @@ YOUR JOB: Customers ask you questions about cannabis products. You will receive 
 ABSOLUTE RULES:
 1. ONLY recommend products from the numbered list provided. Use the EXACT product name as shown. Never invent or guess product names.
 2. SELECT 2-3 products that genuinely match the customer's needs. Do NOT recommend all products.
-3. If NO products are a great match, say so honestly and recommend the closest options.
-4. For each recommendation, explain WHY it fits — mention its terpene profile, lineage (indica/sativa/hybrid), and THC percentage.
-5. Never make medical claims. Never say "treat", "cure", "prescribe", or "medicate". Use words like "may help with", "known for", "people often choose this for".
-6. Always end with: "This isn't medical advice. Availability may vary by store."
+3. PREFER products tagged [DEAL: X% OFF] when they are a good match — customers love savings! Mention the deal.
+4. If NO products are a great match, say so honestly and recommend the closest options.
+5. For each recommendation, explain WHY it fits — mention its terpene profile, lineage (indica/sativa/hybrid), and THC percentage.
+6. If a product has an active deal or special, ALWAYS mention it! This is important for customer satisfaction.
+7. Never make medical claims. Never say "treat", "cure", "prescribe", or "medicate". Use words like "may help with", "known for", "people often choose this for".
+8. Always end with: "This isn't medical advice. Availability may vary by store."
 
 RESPONSE FORMAT:
 - Start with a brief warm greeting (1 sentence, vary it naturally — don't always say the same thing)
 - For each recommended product: the product name (exactly as listed), why it's a good fit, one specific terpene or cannabinoid detail
+- Mention any relevant deals, specials, or promotions
 - The disclaimer
 
 CRITICAL: After each product name you recommend, include its product_id in brackets like this: [ID:48743]. This is required for our system to match your recommendations to product cards. Do not skip this.
@@ -759,12 +799,12 @@ Keep it conversational — you're a friendly budtender, not writing an essay. 3-
 
   // STEP 10 — Build the user prompt
   let userPrompt = `Customer question: "${userQuery}"
-
-Here is our current product inventory. Select the 2-3 best matches for this customer:
+${liveMenuContext}
+Here is our current product inventory. Products tagged [DEAL: X% OFF] have active specials. Select the 2-3 best matches for this customer:
 
 ${productSummaries.join('\n')}
 
-Remember: Pick the products that best match what the customer is asking for. Use EXACT product names from the list above and include the [ID:product_id] after each recommended product name.`;
+Remember: Pick the products that best match what the customer is asking for. When products with active deals are a good fit, prefer those and mention the savings. Use EXACT product names from the list above and include the [ID:product_id] after each recommended product name.`;
   
   // Add retry instruction if this is a retry attempt
   if (isRetry) {
@@ -932,14 +972,56 @@ async function analyzeWithAIWithRetry(products, userQuery, sessionId = null) {
 }
 
 // API Endpoints
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  let menuStatus = 'unknown';
+  try {
+    const menu = await scrapeMenu();
+    menuStatus = `${menu.deals.length} deals, ${menu.specials.length} specials`;
+  } catch { menuStatus = 'unavailable'; }
+  
   res.json({ 
     status: 'ok',
     timestamp: new Date().toISOString(),
     products: productsCache ? productsCache.length : 0,
+    liveMenu: menuStatus,
     environment: process.env.NODE_ENV || 'development',
     version: require('./package.json').version
   });
+});
+
+// Live menu data endpoint
+app.get('/api/menu/live', async (req, res) => {
+  try {
+    const menu = await scrapeMenu(req.query.refresh === 'true');
+    res.json({
+      timestamp: menu.timestamp,
+      deals: menu.deals.map(d => d.text),
+      promos: menu.promos.map(p => p.text),
+      specials_count: menu.specials.length,
+      total_products_on_sale: menu.total_special_products,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch live menu', details: error.message });
+  }
+});
+
+// Deals endpoint
+app.get('/api/menu/deals', async (req, res) => {
+  try {
+    const menu = await scrapeMenu();
+    res.json({
+      timestamp: menu.timestamp,
+      deals: menu.deals,
+      promos: menu.promos,
+      specials: menu.specials.map(s => ({
+        discount: s.discount_amount,
+        description: s.description,
+        product_count: s.product_ids.length,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch deals', details: error.message });
+  }
 });
 
 app.post('/api/chat', async (req, res) => {

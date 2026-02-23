@@ -1,0 +1,11 @@
+{
+  "mcp": {
+    "servers": {
+      "beyond-hello-menu": {
+        "type": "stdio",
+        "command": "node",
+        "args": ["mcp-server.js"]
+      }
+    }
+  }
+}

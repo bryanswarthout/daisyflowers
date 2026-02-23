@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "beyond-hello-menu": {
+      "command": "node",
+      "args": ["mcp-server.js"],
+      "cwd": "c:\\Users\\bryan\\development\\daisyflowers"
+    }
+  }
+}

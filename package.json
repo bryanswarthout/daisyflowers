@@ -13,9 +13,11 @@
     "postinstall": "cd client && npm install"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "pdf-parse": "^2.4.5"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
