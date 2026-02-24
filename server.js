@@ -912,7 +912,7 @@ Remember: Pick the products that best match what the customer is asking for. If 
   // STEP 11 — Make the API call
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify({
-      model: 'claude-opus-4-20250514',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 1500,
       system: [
         {
