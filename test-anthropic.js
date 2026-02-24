@@ -4,7 +4,7 @@ const https = require('https');
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 const postData = JSON.stringify({
-  model: 'claude-3-7-sonnet-20250219',
+  model: 'claude-opus-4-20250514',
   max_tokens: 100,
   messages: [{ role: 'user', content: 'Say hello' }]
 });

@@ -39,7 +39,7 @@ Provide thoughtful analysis and recommendations.`;
   const userQuery = "I need something that helps me focus during creative work sessions but won't make me anxious or crash later. I'm moderately experienced and prefer something I can use during the day.";
 
   const postData = JSON.stringify({
-    model: 'claude-3-5-sonnet-20240620',
+    model: 'claude-opus-4-20250514',
     max_tokens: 1000,
     system: systemPrompt,
     messages: [{ 
