@@ -599,7 +599,7 @@ function App() {
               </Box>
               
               <Typography variant="h4" component="h1" gutterBottom sx={{ color: 'white', fontWeight: 700 }}>
-                ðŸŒ¼ Daisy Flowers
+                Daisy Flowers
               </Typography>
               <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.9)', mb: 2 }}>
                 Your AI Budtender from Beyond Hello
