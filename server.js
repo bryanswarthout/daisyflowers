@@ -203,7 +203,7 @@ function cleanOldSessions() {
 }
 
 // Function to extract structured user intent from natural language queries
-function extractUserIntent(query) {
+function extractUserIntent(query, allProducts) {
   const queryLower = query.toLowerCase();
   
   const intent = {
@@ -214,7 +214,8 @@ function extractUserIntent(query) {
     intensityPref: null,
     experienceLevel: null,
     priceMax: null,
-    specificProduct: null
+    specificProduct: null,
+    specificBrand: null
   };
   
   // Category detection (matching actual 'kind' values in data)
@@ -302,9 +303,62 @@ function extractUserIntent(query) {
   if (quotedMatch) {
     intent.specificProduct = quotedMatch[1];
   } else {
-    const tellMeAbout = query.match(/\b(?:tell me about|do you have|what about)\s+(.+?)(?:\?|$)/i);
+    const tellMeAbout = query.match(/\b(?:tell me about|do you have|what about|looking for|want|recommend|show me|any|got any|carry|stock)\s+(.+?)(?:\?|$)/i);
+    // Also match "what X products do you have" / "which X strains you got" etc.
+    const whatBrandPattern = query.match(/\b(?:what|which)\s+(.+?)\s+(?:products?|strains?|options?|items?|flower|edibles?|vapes?|carts?)\b/i);
     if (tellMeAbout) {
-      intent.specificProduct = tellMeAbout[1].trim();
+      // Strip generic trailing words like "products", "options", "strains", etc.
+      intent.specificProduct = tellMeAbout[1].trim()
+        .replace(/\s+(products?|options?|strains?|items?|stuff|things?|selection|menu|flower|flowers|edibles?|vapes?|carts?)\s*$/i, '')
+        .trim();
+      if (!intent.specificProduct) intent.specificProduct = null;
+    } else if (whatBrandPattern) {
+      intent.specificProduct = whatBrandPattern[1].trim();
+      if (!intent.specificProduct) intent.specificProduct = null;
+    }
+  }
+  
+  // Brand detection — check query against all known brands in the catalog
+  if (allProducts && allProducts.length > 0) {
+    const knownBrands = [...new Set(allProducts.map(p => (p.brand || '').trim()).filter(Boolean))];
+    // Strip special chars (™, ®, *, etc.) for comparison
+    const stripSpecial = (s) => s.replace(/[™®©*()]/g, '').trim().toLowerCase();
+    const queryStripped = stripSpecial(queryLower);
+    for (const brand of knownBrands) {
+      const brandClean = stripSpecial(brand);
+      if (brandClean && brandClean.length >= 3 && queryStripped.includes(brandClean)) {
+        intent.specificBrand = brand;
+        break;
+      }
+    }
+    // Also check if query words match product names (for product-specific requests like "brownie scout")
+    if (!intent.specificProduct && !intent.specificBrand) {
+      // Look for 2+ word product name matches in the query
+      const queryWords = queryLower.replace(/[?!.,]/g, '').trim();
+      for (const p of allProducts) {
+        const pName = (p.name || '').toLowerCase();
+        if (pName.length > 3 && queryWords.includes(pName)) {
+          intent.specificProduct = p.name;
+          break;
+        }
+      }
+      // Fallback: check if any significant word (4+ chars, not common) matches a product name
+      if (!intent.specificProduct) {
+        const skipWords = new Set(['what', 'that', 'this', 'with', 'have', 'from', 'about', 'your', 'show', 'some', 'good', 'best', 'like', 'want', 'need', 'looking', 'recommend', 'products', 'product', 'menu', 'flower', 'flowers', 'strain', 'strains', 'edible', 'edibles', 'vape', 'vapes', 'cart', 'carts', 'indica', 'sativa', 'hybrid', 'sleep', 'relax', 'energy', 'pain', 'something', 'anything', 'strong', 'mild']);
+        const words = queryWords.split(/\s+/).filter(w => w.length >= 4 && !skipWords.has(w));
+        if (words.length > 0) {
+          for (const p of allProducts) {
+            const pName = (p.name || '').toLowerCase();
+            for (const word of words) {
+              if (pName.includes(word) && word.length >= 5) {
+                intent.specificProduct = word;
+                break;
+              }
+            }
+            if (intent.specificProduct) break;
+          }
+        }
+      }
     }
   }
   
@@ -314,6 +368,11 @@ function extractUserIntent(query) {
 // Function to score how well a product matches user intent
 function scoreProduct(product, intent) {
   let score = 0;
+  
+  // 0. SPECIFIC REQUEST BOOST (+100 points) — user asked for this product/brand by name
+  if (product._specificRequest) {
+    score += 100;
+  }
   
   // 1. LINEAGE MATCH (+3 points)
   if (intent.lineagePreference && product.lineage === intent.lineagePreference) {
@@ -616,16 +675,53 @@ function validateAIResponse(responseText, validProductNames) {
 
 // Function to analyze with AI
 async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = false, conversationHistory = []) {
-  // STEP 1 — Extract intent
-  const intent = extractUserIntent(userQuery);
+  // STEP 1 — Extract intent (pass full product list for brand/product name detection)
+  const intent = extractUserIntent(userQuery, products);
   console.log('User intent:', JSON.stringify(intent));
 
-  // STEP 2 — Filter by approved brands (keep this exact logic from the original)
+  // STEP 2 — Filter by approved brands, but bypass for specific brand/product requests
   const approvedBrands = ['hijinks', 'lab', 'nira+', 'nira', 'flower foundry', 'seche', 'tasteology'];
+  
+  // If the user asked for a specific brand or product, find ALL matches from the full catalog first
+  let specificMatches = [];
+  if (intent.specificBrand) {
+    specificMatches = products.filter(p => 
+      (p.brand || '').toLowerCase().trim() === intent.specificBrand.toLowerCase().trim()
+    );
+    console.log(`Found ${specificMatches.length} products for brand: ${intent.specificBrand}`);
+  }
+  if (intent.specificProduct) {
+    const spLower = intent.specificProduct.toLowerCase();
+    const productNameMatches = products.filter(p => 
+      (p.name || '').toLowerCase().includes(spLower) ||
+      (p.brand || '').toLowerCase().includes(spLower)
+    );
+    // Merge without duplicates
+    const existingIds = new Set(specificMatches.map(p => p.product_id));
+    productNameMatches.forEach(p => {
+      if (!existingIds.has(p.product_id)) {
+        specificMatches.push(p);
+        existingIds.add(p.product_id);
+      }
+    });
+    console.log(`Found ${specificMatches.length} total specific matches (brand + name)`);
+  }
+
   let filteredProducts = products.filter(p => {
     const brand = (p.brand || '').toLowerCase().trim();
     return approvedBrands.some(approved => brand.includes(approved));
   });
+  
+  // Merge specific matches into filtered products (bypass brand filter for requested items)
+  if (specificMatches.length > 0) {
+    const filteredIds = new Set(filteredProducts.map(p => p.product_id));
+    specificMatches.forEach(p => {
+      if (!filteredIds.has(p.product_id)) {
+        filteredProducts.push(p);
+        filteredIds.add(p.product_id);
+      }
+    });
+  }
   
   console.log(`After brand filtering: ${filteredProducts.length} products`);
 
@@ -646,24 +742,39 @@ async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = fa
     console.log(`After category filtering (${intent.category}${intent.subcategory ? '/' + intent.subcategory : ''}): ${filteredProducts.length} products`);
   }
 
-  // STEP 4 — Handle "specific product" queries
-  if (intent.specificProduct) {
-    const specificMatches = filteredProducts.filter(p => 
-      (p.name || '').toLowerCase().includes(intent.specificProduct.toLowerCase())
-    );
+  // STEP 4 — Handle "specific product/brand" queries: boost matching products to the top
+  if (intent.specificProduct || intent.specificBrand) {
+    const tagged = new Set();
     
-    if (specificMatches.length > 0) {
-      console.log(`Found specific product match: ${specificMatches[0].name}`);
-      // Return early with just this product for description
-      const productSummary = buildCompactSummary(specificMatches[0]);
-      console.log(`Sending specific product to Claude: ${productSummary}`);
-      
-      const productLookup = new Map();
-      productLookup.set(String(specificMatches[0].product_id), specificMatches[0]);
-      productLookup.set(specificMatches[0].name.toLowerCase(), specificMatches[0]);
-      
-      // TODO: Handle specific product AI call in next prompt
-      // For now, continue with normal flow
+    // Check brand match first
+    if (intent.specificBrand) {
+      const brandLower = intent.specificBrand.toLowerCase();
+      filteredProducts.forEach(p => {
+        if ((p.brand || '').toLowerCase().includes(brandLower)) {
+          p._specificRequest = true;
+          tagged.add(p.product_id);
+        }
+      });
+    }
+    
+    // Check product name match
+    if (intent.specificProduct) {
+      const prodLower = intent.specificProduct.toLowerCase();
+      filteredProducts.forEach(p => {
+        if (!tagged.has(p.product_id) && (
+          (p.name || '').toLowerCase().includes(prodLower) ||
+          (p.brand || '').toLowerCase().includes(prodLower)
+        )) {
+          p._specificRequest = true;
+          tagged.add(p.product_id);
+        }
+      });
+    }
+    
+    if (tagged.size > 0) {
+      console.log(`Tagged ${tagged.size} products as specific matches for brand="${intent.specificBrand || ''}" product="${intent.specificProduct || ''}"`);
+    } else {
+      console.log(`No matches found for brand="${intent.specificBrand || ''}" product="${intent.specificProduct || ''}"`);
     }
   }
 
@@ -673,6 +784,9 @@ async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = fa
     score: scoreProduct(p, intent)
   }));
   scoredProducts.sort((a, b) => b.score - a.score);
+  
+  // Clean up _specificRequest flag so it doesn't persist across requests
+  filteredProducts.forEach(p => { delete p._specificRequest; });
   
   console.log(`Top 5 scored products: ${scoredProducts.slice(0, 5).map(sp => `${sp.product.name} (${sp.score.toFixed(1)})`).join(', ')}`);
 
