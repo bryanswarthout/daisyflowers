@@ -1,4 +1,4 @@
-/* Restored Original Avatar Styles with Full Animations */
+﻿/* Restored Original Avatar Styles with Full Animations */
 
 /* Avatar Container */
 .avatar-container {
@@ -129,37 +129,37 @@
 /* Material UI overrides for better styling with Beyond Hello colors */
 .MuiPaper-root {
   border-radius: 12px !important;
-  background: linear-gradient(145deg, #ffffff 0%, #f8faf7 100%) !important;
+  background: linear-gradient(145deg, #ffffff 0%, #f7f9fa 100%) !important;
 }
 
-/* Header paper should use the green background */
+/* Header paper should use the dark teal background */
 .header-paper {
-  background: linear-gradient(135deg, #1a4d3a 0%, #2e7d32 100%) !important;
+  background: linear-gradient(135deg, #233D4B 0%, #3A6378 100%) !important;
 }
 
 .MuiCard-root {
-  background: linear-gradient(145deg, #ffffff 0%, #f8faf7 100%) !important;
-  border: 1px solid rgba(26, 77, 58, 0.08) !important;
+  background: linear-gradient(145deg, #ffffff 0%, #f7f9fa 100%) !important;
+  border: 1px solid rgba(35, 61, 75, 0.08) !important;
   transition: all 0.3s ease !important;
 }
 
 .MuiCard-root:hover {
-  box-shadow: 0 8px 30px rgba(26, 77, 58, 0.15) !important;
-  border-color: rgba(26, 77, 58, 0.2) !important;
+  box-shadow: 0 8px 30px rgba(35, 61, 75, 0.15) !important;
+  border-color: rgba(35, 61, 75, 0.2) !important;
   transform: translateY(-2px) !important;
 }
 
 .MuiButton-contained {
   text-transform: none !important;
   font-weight: 600 !important;
-  background: linear-gradient(135deg, #1a4d3a 0%, #2e7d32 100%) !important;
-  box-shadow: 0 4px 15px rgba(26, 77, 58, 0.3) !important;
+  background: linear-gradient(135deg, #233D4B 0%, #3A6378 100%) !important;
+  box-shadow: 0 4px 15px rgba(35, 61, 75, 0.3) !important;
   color: white !important;
 }
 
 .MuiButton-contained:hover {
-  background: linear-gradient(135deg, #0f3c28 0%, #1b5e20 100%) !important;
-  box-shadow: 0 6px 20px rgba(26, 77, 58, 0.4) !important;
+  background: linear-gradient(135deg, #192C37 0%, #1C3340 100%) !important;
+  box-shadow: 0 6px 20px rgba(35, 61, 75, 0.4) !important;
   color: white !important;
 }
 
@@ -168,20 +168,20 @@
 }
 
 .MuiTextField-root .MuiOutlinedInput-root {
-  background: linear-gradient(145deg, #ffffff 0%, #fafcfa 100%) !important;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%) !important;
   border-radius: 12px !important;
 }
 
 .MuiTextField-root .MuiOutlinedInput-root fieldset {
-  border-color: rgba(26, 77, 58, 0.23) !important;
+  border-color: rgba(35, 61, 75, 0.23) !important;
 }
 
 .MuiTextField-root .MuiOutlinedInput-root:hover fieldset {
-  border-color: rgba(26, 77, 58, 0.5) !important;
+  border-color: rgba(35, 61, 75, 0.5) !important;
 }
 
 .MuiTextField-root .MuiOutlinedInput-root.Mui-focused fieldset {
-  border-color: #1a4d3a !important;
+  border-color: #233D4B !important;
 }
 
 .MuiIconButton-root {
@@ -195,28 +195,28 @@
 
 .MuiChip-root {
   background: linear-gradient(135deg, #d4a574 0%, #e8c4a0 100%) !important;
-  color: #1a4d3a !important;
+  color: #233D4B !important;
   font-weight: 500 !important;
 }
 
 /* Message styling enhancements */
 .message-container {
-  background: linear-gradient(145deg, #ffffff 0%, #f8faf7 100%);
-  border: 1px solid rgba(26, 77, 58, 0.08);
+  background: linear-gradient(145deg, #ffffff 0%, #f7f9fa 100%);
+  border: 1px solid rgba(35, 61, 75, 0.08);
   border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 2px 10px rgba(26, 77, 58, 0.05);
+  box-shadow: 0 2px 10px rgba(35, 61, 75, 0.05);
 }
 
 .message-container.user-message {
-  background: linear-gradient(135deg, #1a4d3a 0%, #2e7d32 100%);
+  background: linear-gradient(135deg, #233D4B 0%, #3A6378 100%);
   color: white;
-  border-color: rgba(26, 77, 58, 0.2);
+  border-color: rgba(35, 61, 75, 0.2);
 }
 
 .message-container.assistant-message {
-  background: linear-gradient(145deg, #fefefe 0%, #f5f7f4 100%);
-  border-color: rgba(26, 77, 58, 0.1);
+  background: linear-gradient(145deg, #fefefe 0%, #f4f7f9 100%);
+  border-color: rgba(35, 61, 75, 0.1);
 }
 
 /* Responsive design */

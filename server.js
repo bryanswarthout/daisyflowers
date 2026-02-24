@@ -674,7 +674,7 @@ function validateAIResponse(responseText, validProductNames) {
 }
 
 // Function to analyze with AI
-async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = false, conversationHistory = []) {
+async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = false, conversationHistory = [], modelOverride = null) {
   // STEP 1 — Extract intent (pass full product list for brand/product name detection)
   const intent = extractUserIntent(userQuery, products);
   console.log('User intent:', JSON.stringify(intent));
@@ -887,11 +887,10 @@ ABSOLUTE RULES:
 9. End with a brief, natural-sounding note: "Just remember, this isn't medical advice — everyone's experience is unique and availability may vary by store."
 
 RESPONSE STYLE:
-- Open with genuine enthusiasm that matches the question — not a generic greeting. React to what they asked about.
-- Talk about products the way a real budtender would — share what makes them special, what the experience is like, why you'd recommend them.
-- When it makes sense, offer extra context: explain the difference between live resin and distillate, why minor cannabinoids matter for sleep, how terpene profiles shape the experience, etc.
-- Pull in extra options when helpful (e.g., "I also grabbed a couple sativa-leaning hybrids to give you a bigger selection").
-- Keep it conversational and human — 1-2 sentences per product maximum, no bullet-point lists.
+- Open with genuine enthusiasm that matches the question — not a generic greeting.
+- Keep it tight: 1 sentence per product, no bullet-point lists. Aim for 2-3 sentences total (not counting the disclaimer).
+- Talk about products the way a real budtender would — what makes them special and why you'd recommend them.
+- Be conversational and human, but don't ramble. Get to the point with personality.
 
 CRITICAL: After each product name you recommend, include its product_id in brackets like this: [ID:48743]. This is required for our system to match your recommendations to product cards. Do not skip this.`;
 
@@ -910,10 +909,13 @@ Remember: Pick the products that best match what the customer is asking for. If 
   }
 
   // STEP 11 — Make the API call
+  const allowedModels = ['claude-sonnet-4-20250514', 'claude-opus-4-20250514'];
+  const selectedModel = allowedModels.includes(modelOverride) ? modelOverride : 'claude-sonnet-4-20250514';
+  console.log(`Using model: ${selectedModel}`);
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1500,
+      model: selectedModel,
+      max_tokens: 750,
       system: [
         {
           type: "text",
@@ -1034,10 +1036,10 @@ Remember: Pick the products that best match what the customer is asking for. If 
 }
 
 // Wrapper function with retry logic and graceful fallback
-async function analyzeWithAIWithRetry(products, userQuery, sessionId = null, history = []) {
+async function analyzeWithAIWithRetry(products, userQuery, sessionId = null, history = [], model = null) {
   try {
     // First attempt
-    const result = await analyzeWithAI(products, userQuery, sessionId, false, history);
+    const result = await analyzeWithAI(products, userQuery, sessionId, false, history, model);
     
     // Check if we got product matches or if retry is needed
     const needsRetry = result.products.length === 0 && 
@@ -1047,7 +1049,7 @@ async function analyzeWithAIWithRetry(products, userQuery, sessionId = null, his
       console.log('No products matched, retrying with more explicit prompt...');
       
       // Retry once with more explicit instructions
-      const retryResult = await analyzeWithAI(products, userQuery, sessionId, true, history);
+      const retryResult = await analyzeWithAI(products, userQuery, sessionId, true, history, model);
       
       if (retryResult.products.length > 0) {
         console.log('Retry successful!');
@@ -1134,7 +1136,7 @@ app.post('/api/chat', async (req, res) => {
   console.log('=== /api/chat endpoint called ===');
   
   try {
-    let { message, history } = req.body;
+    let { message, history, model } = req.body;
     console.log('✅ Request body parsed successfully');
     
     if (!message) {
@@ -1193,7 +1195,7 @@ app.post('/api/chat', async (req, res) => {
     console.log('🤖 Starting AI analysis...');
     
     // First attempt
-    let result = await analyzeWithAIWithRetry(products, message, sessionId, history);
+    let result = await analyzeWithAIWithRetry(products, message, sessionId, history, model);
     console.log('✅ AI analysis complete');
 
     console.log('✅ Sending response...');
