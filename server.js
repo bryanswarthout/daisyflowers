@@ -915,7 +915,7 @@ Remember: Pick the products that best match what the customer is asking for. If 
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify({
       model: selectedModel,
-      max_tokens: 750,
+      max_tokens: 1500,
       system: [
         {
           type: "text",
