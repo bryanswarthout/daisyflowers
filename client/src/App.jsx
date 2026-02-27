@@ -563,7 +563,7 @@ function App() {
           elevation={3} 
           className="header-paper"
           sx={{ 
-            mb: 2,
+            mb: 1,
             background: 'linear-gradient(135deg, #233D4B 0%, #3A6378 100%) !important',
             position: 'relative',
             overflow: 'hidden',
@@ -580,9 +580,9 @@ function App() {
           }}
         >
           <Container maxWidth="lg">
-            <Box sx={{ py: 3, textAlign: 'center' }}>
+            <Box sx={{ py: 1.5, textAlign: 'center' }}>
               {/* Restored Original Avatar Container */}
-              <Box sx={{ mb: 2 }} ref={avatarRef}>
+              <Box sx={{ mb: 1 }} ref={avatarRef}>
                 <div className="avatar-container">
                   <div className={`avatar ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
                     <img 
@@ -598,21 +598,20 @@ function App() {
                 </div>
               </Box>
               
-              <Typography variant="h4" component="h1" gutterBottom sx={{ color: 'white', fontWeight: 700 }}>
+              <Typography variant="h5" component="h1" sx={{ color: 'white', fontWeight: 700, mb: 0.5 }}>
                 Daisy Flowers
               </Typography>
-              <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.9)', mb: 2 }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)', mb: 0.5 }}>
                 Your AI Budtender from Beyond Hello
               </Typography>
               
               <IconButton 
                 onClick={toggleSpeech}
                 color={speechEnabled ? 'primary' : 'default'}
-                size="large"
-                sx={{ mt: 1 }}
+                size="small"
                 title={speechEnabled ? 'Click to disable speech' : 'Click to enable speech'}
               >
-                {speechEnabled ? <VolumeUpIcon /> : <VolumeOffIcon />}
+                {speechEnabled ? <VolumeUpIcon fontSize="small" /> : <VolumeOffIcon fontSize="small" />}
               </IconButton>
             </Box>
           </Container>
@@ -620,7 +619,7 @@ function App() {
 
         {/* Chat Container */}
         <Container maxWidth="lg" sx={{ pb: 3 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 220px)' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 260px)' }}>
             {/* Messages */}
             <Box sx={{ flexGrow: 1, overflow: 'auto', mb: 2 }}>
               <Stack spacing={2}>
@@ -774,25 +773,7 @@ function App() {
               }}
             >
               <Box component="form" onSubmit={sendMessage}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <FormControl size="small" sx={{ minWidth: 100 }}>
-                    <Select
-                      value={selectedModel}
-                      onChange={(e) => setSelectedModel(e.target.value)}
-                      disabled={isLoading}
-                      sx={{
-                        fontSize: '0.75rem',
-                        color: '#233D4B',
-                        '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(35, 61, 75, 0.23)' },
-                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(35, 61, 75, 0.5)' },
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#233D4B' },
-                        background: 'white',
-                      }}
-                    >
-                      <MenuItem value="claude-sonnet-4-20250514" sx={{ fontSize: '0.75rem' }}>Sonnet</MenuItem>
-                      <MenuItem value="claude-opus-4-20250514" sx={{ fontSize: '0.75rem' }}>Opus</MenuItem>
-                    </Select>
-                  </FormControl>
+                <Stack spacing={1}>
                   <TextField
                     fullWidth
                     value={input}
@@ -802,26 +783,48 @@ function App() {
                     variant="outlined"
                     size="medium"
                   />
-                  
-                  <IconButton 
-                    onClick={isListening ? stopListening : startListening}
-                    disabled={isLoading}
-                    color={isListening ? 'secondary' : 'default'}
-                    sx={{ p: 1.5 }}
-                  >
-                    {isListening ? <MicOffIcon /> : <MicIcon />}
-                  </IconButton>
-                  
-                  <Button
-                    type="submit"
-                    disabled={isLoading || !input.trim()}
-                    variant="contained"
-                    size="large"
-                    endIcon={<SendIcon />}
-                    sx={{ px: 3 }}
-                  >
-                    Send
-                  </Button>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <FormControl size="small" sx={{ minWidth: 100 }}>
+                      <Select
+                        value={selectedModel}
+                        onChange={(e) => setSelectedModel(e.target.value)}
+                        disabled={isLoading}
+                        sx={{
+                          fontSize: '0.75rem',
+                          color: '#233D4B',
+                          '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(35, 61, 75, 0.23)' },
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(35, 61, 75, 0.5)' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#233D4B' },
+                          background: 'white',
+                        }}
+                      >
+                        <MenuItem value="claude-sonnet-4-20250514" sx={{ fontSize: '0.75rem' }}>Sonnet</MenuItem>
+                        <MenuItem value="claude-opus-4-20250514" sx={{ fontSize: '0.75rem' }}>Opus</MenuItem>
+                      </Select>
+                    </FormControl>
+                    
+                    <Box sx={{ flexGrow: 1 }} />
+                    
+                    <IconButton 
+                      onClick={isListening ? stopListening : startListening}
+                      disabled={isLoading}
+                      color={isListening ? 'secondary' : 'default'}
+                      sx={{ p: 1.5, color: isListening ? undefined : '#233D4B !important' }}
+                    >
+                      {isListening ? <MicOffIcon /> : <MicIcon />}
+                    </IconButton>
+                    
+                    <Button
+                      type="submit"
+                      disabled={isLoading || !input.trim()}
+                      variant="contained"
+                      size="large"
+                      endIcon={<SendIcon />}
+                      sx={{ px: 3 }}
+                    >
+                      Send
+                    </Button>
+                  </Stack>
                 </Stack>
               </Box>
             </Paper>

@@ -4,13 +4,13 @@
 .avatar-container {
   display: flex;
   justify-content: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.25rem;
 }
 
 .avatar {
   position: relative;
-  width: 200px;
-  height: 200px;
+  width: 100px;
+  height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -222,8 +222,8 @@
 /* Responsive design */
 @media (max-width: 768px) {
   .avatar {
-    width: 150px;
-    height: 150px;
+    width: 80px;
+    height: 80px;
   }
   
   .mouth-overlay {
@@ -236,8 +236,8 @@
 
 @media (max-width: 480px) {
   .avatar {
-    width: 120px;
-    height: 120px;
+    width: 60px;
+    height: 60px;
   }
 }
 
@@ -263,8 +263,8 @@
   }
 
   .avatar {
-    width: 150px;
-    height: 150px;
+    width: 80px;
+    height: 80px;
   }
   
   .mouth-overlay {
@@ -299,8 +299,8 @@
 
 @media (max-width: 480px) {
   .avatar {
-    width: 120px;
-    height: 120px;
+    width: 60px;
+    height: 60px;
   }
 
   .floating-avatar {
