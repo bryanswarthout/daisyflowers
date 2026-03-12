@@ -25,7 +25,10 @@ import {
   MicOff as MicOffIcon,
   Send as SendIcon,
   VolumeUp as VolumeUpIcon,
-  VolumeOff as VolumeOffIcon
+  VolumeOff as VolumeOffIcon,
+  RecordVoiceOver as RecordVoiceOverIcon,
+  Menu as MenuIcon,
+  Close as CloseIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -158,10 +161,27 @@ function App() {
   const [typewriterText, setTypewriterText] = useState('')
   const [isTypewriting, setIsTypewriting] = useState(false)
   const [showFloatingAvatar, setShowFloatingAvatar] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-20250514')
+  const [selectedVoice, setSelectedVoice] = useState('EXAVITQu4vr4xnSDxMaL')
   const messagesEndRef = useRef(null)
   const typewriterRef = useRef(null)
   const avatarRef = useRef(null)
+  const audioRef = useRef(null)
+
+  // ElevenLabs women's voices
+  const elevenLabsVoices = [
+    { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', desc: 'Soft & warm' },
+    { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel', desc: 'Calm & clear' },
+    { id: 'LcfcDJNUP1GQjkzn1xUU', name: 'Emily', desc: 'Calm & gentle' },
+    { id: 'bVMeCyTHy58xNoL34h3p', name: 'Aria', desc: 'Expressive & rich' },
+    { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura', desc: 'Upbeat & clear' },
+    { id: 'z9fAnlkpzviPz146aGWa', name: 'Glinda', desc: 'Witchy & magical' },
+    { id: 'piTKgcLEGmPE4e6mEKli', name: 'Nicole', desc: 'Whispery & intimate' },
+    { id: 'XrExE9yKIg1WjnnlVkGX', name: 'Matilda', desc: 'Warm & friendly' },
+    { id: 'ThT5KcBeYPX3keUQqHPh', name: 'Dorothy', desc: 'Pleasant & curious' },
+    { id: 'oWAxZDx7w5VEj9dCyTzz', name: 'Grace', desc: 'Southern charm' },
+  ]
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -171,68 +191,16 @@ function App() {
     scrollToBottom()
   }, [messages])
 
-  // Floating avatar scroll detection
   useEffect(() => {
-    const handleScroll = () => {
-      if (avatarRef.current) {
-        const avatarRect = avatarRef.current.getBoundingClientRect()
-        const isAvatarVisible = avatarRect.top >= -avatarRect.height && avatarRect.bottom <= window.innerHeight + avatarRect.height
-        setShowFloatingAvatar(!isAvatarVisible)
-      }
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    // Also check on resize
-    window.addEventListener('resize', handleScroll)
-    // Check initial state
-    handleScroll()
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', handleScroll)
-    }
-  }, [])
-
-  // Floating avatar scroll detection
-  useEffect(() => {
-    const handleScroll = () => {
-      if (avatarRef.current) {
-        const avatarRect = avatarRef.current.getBoundingClientRect()
-        const isAvatarVisible = avatarRect.top >= -avatarRect.height && avatarRect.bottom <= window.innerHeight + avatarRect.height
-        setShowFloatingAvatar(!isAvatarVisible)
-      }
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    // Also check on resize
-    window.addEventListener('resize', handleScroll)
-    // Check initial state
-    handleScroll()
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', handleScroll)
-    }
-  }, [])
-
-  useEffect(() => {
-    // Load voices when component mounts
-    if ('speechSynthesis' in window) {
-      // Load voices
-      window.speechSynthesis.getVoices()
-      
-      // Some browsers need this event
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.getVoices()
-      }
-    }
-    
-    // Cleanup typewriter effect on unmount
+    // Cleanup typewriter effect and audio on unmount
     return () => {
       if (typewriterRef.current) {
         clearInterval(typewriterRef.current)
       }
-      window.speechSynthesis.cancel()
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
     }
   }, [])
 
@@ -291,101 +259,14 @@ function App() {
     }
   }
 
-  const getBestFemaleVoice = () => {
-    const voices = window.speechSynthesis.getVoices()
-    
-    // Prioritize attractive British female voices first
-    const preferredVoices = [
-      'Microsoft Hazel Desktop - English (Great Britain)',
-      'Google UK English Female',
-      'Kate',
-      'Serena', 
-      'Moira',
-      'Fiona',
-      'Microsoft Susan Mobile - English (Great Britain)',
-      'Samantha',
-      'Karen',
-      'Tessa',
-      'Microsoft Zira - English (United States)',
-      'Google US English Female'
-    ]
-    
-    // First try to find preferred voices
-    for (const preferred of preferredVoices) {
-      const voice = voices.find(v => v.name.includes(preferred.split(' - ')[0]))
-      if (voice) return voice
+  const speakText = async (text) => {
+    if (!speechEnabled) return
+
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
     }
-    
-    // Look for any British accent
-    const britishVoice = voices.find(voice => 
-      (voice.lang.includes('GB') || voice.lang.includes('UK') || 
-       voice.name.toLowerCase().includes('british') ||
-       voice.name.toLowerCase().includes('england')) &&
-      (voice.name.toLowerCase().includes('female') || 
-       voice.name.toLowerCase().includes('woman') ||
-       voice.gender === 'female')
-    )
-    
-    if (britishVoice) return britishVoice
-    
-    // Fallback to any attractive female voice
-    const femaleVoice = voices.find(voice => 
-      (voice.name.toLowerCase().includes('female') || 
-       voice.name.toLowerCase().includes('woman') ||
-       voice.gender === 'female') && 
-      voice.lang.startsWith('en')
-    )
-    
-    return femaleVoice || voices.find(voice => voice.lang.startsWith('en'))
-  }
-
-  const speakWordByWord = (words, currentIndex = 0) => {
-    if (!speechEnabled || !('speechSynthesis' in window) || currentIndex >= words.length) {
-      setIsPlayingAudio(false)
-      return
-    }
-
-    const word = words[currentIndex]
-    if (!word.trim()) {
-      speakWordByWord(words, currentIndex + 1)
-      return
-    }
-
-    const utterance = new SpeechSynthesisUtterance(word)
-    
-    // Configure for more natural female voice
-    utterance.rate = 1.3 // Faster speech rate
-    utterance.pitch = 1.1 // Natural female pitch
-    utterance.volume = 0.9
-    
-    const voice = getBestFemaleVoice()
-    if (voice) {
-      utterance.voice = voice
-    }
-
-    utterance.onstart = () => {
-      setIsPlayingAudio(true)
-      setIsSpeaking(true)
-    }
-
-    utterance.onend = () => {
-      // Continue with next word immediately
-      speakWordByWord(words, currentIndex + 1)
-    }
-
-    utterance.onerror = () => {
-      console.error('Speech error, continuing to next word')
-      speakWordByWord(words, currentIndex + 1)
-    }
-
-    window.speechSynthesis.speak(utterance)
-  }
-
-  const speakText = (text) => {
-    if (!speechEnabled || !('speechSynthesis' in window)) return
-
-    // Stop any currently playing speech
-    window.speechSynthesis.cancel()
     
     // Clean the text
     const cleanText = text
@@ -398,33 +279,48 @@ function App() {
 
     if (!cleanText) return
 
-    const utterance = new SpeechSynthesisUtterance(cleanText)
-    
-    // Feminine British woman speech settings
-    utterance.rate = 1.1 // Slower and more conversational
-    utterance.pitch = 1.3 // Higher pitch for more feminine voice
-    utterance.volume = 0.9
-    
-    const voice = getBestFemaleVoice()
-    if (voice) {
-      utterance.voice = voice
-    }
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cleanText, voiceId: selectedVoice }),
+      })
 
-    utterance.onstart = () => {
-      setIsPlayingAudio(true)
-      setIsSpeaking(true)
-    }
+      if (!response.ok) {
+        console.error('ElevenLabs TTS error:', response.status)
+        return
+      }
 
-    utterance.onend = () => {
+      const audioBlob = await response.blob()
+      const audioUrl = URL.createObjectURL(audioBlob)
+      const audio = new Audio(audioUrl)
+      audioRef.current = audio
+
+      audio.onplay = () => {
+        setIsPlayingAudio(true)
+        setIsSpeaking(true)
+      }
+
+      audio.onended = () => {
+        setIsPlayingAudio(false)
+        setTimeout(() => setIsSpeaking(false), 500)
+        URL.revokeObjectURL(audioUrl)
+        audioRef.current = null
+      }
+
+      audio.onerror = () => {
+        setIsPlayingAudio(false)
+        setIsSpeaking(false)
+        URL.revokeObjectURL(audioUrl)
+        audioRef.current = null
+      }
+
+      audio.play()
+    } catch (error) {
+      console.error('TTS fetch error:', error)
       setIsPlayingAudio(false)
-      setTimeout(() => setIsSpeaking(false), 500)
+      setIsSpeaking(false)
     }
-
-    utterance.onerror = () => {
-      setIsPlayingAudio(false)
-    }
-
-    window.speechSynthesis.speak(utterance)
   }
 
   const typewriterWithSpeech = (text, callback) => {
@@ -477,9 +373,13 @@ function App() {
         speakText(lastAssistantMessage.content)
       }
     } else {
-      // If disabling speech, stop any current speech
-      window.speechSynthesis.cancel()
+      // If disabling speech, stop any current audio
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
       setIsPlayingAudio(false)
+      setIsSpeaking(false)
     }
   }
 
@@ -557,71 +457,180 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
-        {/* Header */}
-        <Paper 
-          elevation={3} 
-          className="header-paper"
-          sx={{ 
-            mb: 1,
-            background: 'linear-gradient(135deg, #233D4B 0%, #3A6378 100%) !important',
-            position: 'relative',
-            overflow: 'hidden',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'radial-gradient(circle at 30% 70%, rgba(212, 165, 116, 0.1) 0%, transparent 50%)',
-              pointerEvents: 'none',
-            }
+      <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', backgroundColor: 'background.default' }}>
+        
+        {/* Mobile overlay */}
+        {sidebarOpen && (
+          <Box
+            onClick={() => setSidebarOpen(false)}
+            sx={{
+              display: { xs: 'block', md: 'none' },
+              position: 'fixed',
+              inset: 0,
+              bgcolor: 'rgba(0,0,0,0.5)',
+              zIndex: 1199,
+            }}
+          />
+        )}
+
+        {/* Sidebar */}
+        <Box
+          className="sidebar"
+          sx={{
+            width: { xs: 260, md: 240 },
+            minWidth: { xs: 260, md: 240 },
+            height: '100vh',
+            background: 'linear-gradient(180deg, #233D4B 0%, #1a3040 50%, #192C37 100%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            py: 3,
+            px: 1.5,
+            position: { xs: 'fixed', md: 'relative' },
+            left: { xs: sidebarOpen ? 0 : -260, md: 0 },
+            top: 0,
+            zIndex: { xs: 1200, md: 1 },
+            transition: 'left 0.3s ease',
+            boxShadow: { xs: sidebarOpen ? '4px 0 20px rgba(0,0,0,0.3)' : 'none', md: '2px 0 10px rgba(0,0,0,0.1)' },
+            overflowY: 'auto',
+            overflowX: 'hidden',
           }}
         >
-          <Container maxWidth="lg">
-            <Box sx={{ py: 1.5, textAlign: 'center' }}>
-              {/* Restored Original Avatar Container */}
-              <Box sx={{ mb: 1 }} ref={avatarRef}>
-                <div className="avatar-container">
-                  <div className={`avatar ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
-                    <img 
-                      src="/girl.png" 
-                      alt="Daisy Flowers" 
-                      className="avatar-image"
-                    />
-                    <div className="mouth-overlay">
-                      <div className="mouth-animation"></div>
-                    </div>
-                    <div className="avatar-pulse"></div>
-                  </div>
+          {/* Mobile close button */}
+          <IconButton
+            onClick={() => setSidebarOpen(false)}
+            sx={{
+              display: { xs: 'flex', md: 'none' },
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              color: 'rgba(255,255,255,0.7)',
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+
+          {/* Avatar */}
+          <Box sx={{ mb: 2 }} ref={avatarRef}>
+            <div className="avatar-container">
+              <div className={`avatar ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
+                <img 
+                  src="/girl.png" 
+                  alt="Daisy Flowers" 
+                  className="avatar-image"
+                />
+                <div className="mouth-overlay">
+                  <div className="mouth-animation"></div>
                 </div>
-              </Box>
-              
-              <Typography variant="h5" component="h1" sx={{ color: 'white', fontWeight: 700, mb: 0.5 }}>
-                Daisy Flowers
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)', mb: 0.5 }}>
-                Your AI Budtender from Beyond Hello
-              </Typography>
-              
+                <div className="avatar-pulse"></div>
+              </div>
+            </div>
+          </Box>
+          
+          <Typography variant="h6" component="h1" sx={{ color: 'white', fontWeight: 700, mb: 0.25, fontSize: '1.1rem', textAlign: 'center' }}>
+            Daisy Flowers
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.75)', mb: 2, textAlign: 'center', lineHeight: 1.3 }}>
+            Your AI Budtender from Beyond Hello
+          </Typography>
+          
+          <Divider sx={{ width: '80%', borderColor: 'rgba(255,255,255,0.15)', mb: 2 }} />
+
+          {/* Voice controls */}
+          <Stack spacing={1} alignItems="center" sx={{ width: '100%', px: 0.5 }}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
               <IconButton 
                 onClick={toggleSpeech}
-                color={speechEnabled ? 'primary' : 'default'}
                 size="small"
-                title={speechEnabled ? 'Click to disable speech' : 'Click to enable speech'}
+                title={speechEnabled ? 'Disable speech' : 'Enable speech'}
+                sx={{ color: speechEnabled ? '#d4a574 !important' : 'rgba(255,255,255,0.5) !important' }}
               >
                 {speechEnabled ? <VolumeUpIcon fontSize="small" /> : <VolumeOffIcon fontSize="small" />}
               </IconButton>
-            </Box>
-          </Container>
-        </Paper>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                {speechEnabled ? 'Voice On' : 'Voice Off'}
+              </Typography>
+            </Stack>
+            {speechEnabled && (
+              <FormControl size="small" sx={{ width: '100%' }}>
+                <Select
+                  value={selectedVoice}
+                  onChange={(e) => setSelectedVoice(e.target.value)}
+                  sx={{
+                    fontSize: '0.7rem',
+                    color: 'white',
+                    height: 32,
+                    '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.4)' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.6)' },
+                    '.MuiSvgIcon-root': { color: 'rgba(255,255,255,0.5)' },
+                  }}
+                  startAdornment={<RecordVoiceOverIcon sx={{ fontSize: 13, mr: 0.5, color: 'rgba(255,255,255,0.5)' }} />}
+                >
+                  {elevenLabsVoices.map(v => (
+                    <MenuItem key={v.id} value={v.id} sx={{ fontSize: '0.75rem' }}>
+                      {v.name} — {v.desc}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          </Stack>
 
-        {/* Chat Container */}
-        <Container maxWidth="lg" sx={{ pb: 3 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 260px)' }}>
-            {/* Messages */}
-            <Box sx={{ flexGrow: 1, overflow: 'auto', mb: 2 }}>
+          <Box sx={{ flexGrow: 1 }} />
+
+          {/* Model selector at bottom */}
+          <Divider sx={{ width: '80%', borderColor: 'rgba(255,255,255,0.15)', mb: 1.5, mt: 2 }} />
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mb: 0.5 }}>Model</Typography>
+          <FormControl size="small" sx={{ width: '100%', px: 0.5 }}>
+            <Select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              disabled={isLoading}
+              sx={{
+                fontSize: '0.75rem',
+                color: 'white',
+                height: 32,
+                '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.4)' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.6)' },
+                '.MuiSvgIcon-root': { color: 'rgba(255,255,255,0.5)' },
+              }}
+            >
+              <MenuItem value="claude-sonnet-4-20250514" sx={{ fontSize: '0.75rem' }}>Sonnet</MenuItem>
+              <MenuItem value="claude-opus-4-20250514" sx={{ fontSize: '0.75rem' }}>Opus</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* Main Chat Area */}
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', minWidth: 0 }}>
+          
+          {/* Mobile top bar */}
+          <Box
+            sx={{
+              display: { xs: 'flex', md: 'none' },
+              alignItems: 'center',
+              px: 1.5,
+              py: 1,
+              background: 'linear-gradient(135deg, #233D4B 0%, #3A6378 100%)',
+              gap: 1.5,
+            }}
+          >
+            <IconButton onClick={() => setSidebarOpen(true)} sx={{ color: 'white !important' }}>
+              <MenuIcon />
+            </IconButton>
+            <div className={`avatar-mini ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
+              <img src="/girl.png" alt="Daisy" className="avatar-mini-image" />
+            </div>
+            <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 600 }}>
+              Daisy Flowers
+            </Typography>
+          </Box>
+
+          {/* Messages */}
+          <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 1.5, sm: 2, md: 3 } }}>
+            <Box sx={{ maxWidth: 900, mx: 'auto' }}>
               <Stack spacing={2}>
                 {messages.map((msg, idx) => (
                   <Box key={idx} sx={{ width: '100%' }}>
@@ -650,7 +659,7 @@ function App() {
                       </Typography>
                     </Paper>
 
-                    {/* Product Cards - Now below the text response */}
+                    {/* Product Cards */}
                     {msg.products && msg.products.length > 0 && (
                       <Box sx={{ mt: 2, width: '100%' }}>
                         <Typography variant="h6" gutterBottom color="primary">
@@ -658,11 +667,13 @@ function App() {
                         </Typography>
                         <Grid container spacing={2}>
                           {msg.products.map((product, pIdx) => (
-                            <Grid item xs={12} sm={6} key={pIdx}>
+                            <Grid size={{ xs: 12, sm: 6 }} key={pIdx}>
                               <Card 
                                 elevation={2} 
                                 sx={{ 
                                   height: '100%',
+                                  display: 'flex',
+                                  flexDirection: 'column',
                                   transition: 'all 0.3s ease',
                                   '&:hover': {
                                     elevation: 4,
@@ -679,7 +690,7 @@ function App() {
                                     sx={{ objectFit: 'contain', backgroundColor: '#f5f5f5' }}
                                   />
                                 )}
-                                <CardContent>
+                                <CardContent sx={{ flexGrow: 1 }}>
                                   <Typography variant="h6" component="h3" gutterBottom>
                                     {product.name}
                                   </Typography>
@@ -688,7 +699,7 @@ function App() {
                                     {product.brand}
                                   </Typography>
 
-                                  <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+                                  <Stack direction="row" spacing={1} sx={{ mb: 1 }} flexWrap="wrap" useFlexGap>
                                     <Chip 
                                       label={product.kind} 
                                       size="small" 
@@ -718,8 +729,10 @@ function App() {
                                       {product.price}
                                     </Typography>
                                   )}
+                                </CardContent>
 
-                                  {product.path && (
+                                {product.path && (
+                                  <Box sx={{ p: 2, pt: 0 }}>
                                     <Button
                                       component={Link}
                                       href={product.path}
@@ -728,12 +741,11 @@ function App() {
                                       variant="contained"
                                       size="small"
                                       fullWidth
-                                      sx={{ mt: 1 }}
                                     >
                                       View Product
                                     </Button>
-                                  )}
-                                </CardContent>
+                                  </Box>
+                                )}
                               </Card>
                             </Grid>
                           ))}
@@ -761,19 +773,19 @@ function App() {
                 <div ref={messagesEndRef} />
               </Stack>
             </Box>
+          </Box>
 
-            {/* Input Form */}
-            <Paper 
-              elevation={3} 
-              sx={{ 
-                p: 2,
-                background: 'linear-gradient(145deg, #fefefe 0%, #f4f7f9 100%)',
-                border: '1px solid rgba(35, 61, 75, 0.1)',
-                borderTop: '2px solid #d4a574',
-              }}
-            >
+          {/* Input Form - pinned to bottom */}
+          <Box
+            sx={{
+              p: { xs: 1, sm: 1.5, md: 2 },
+              borderTop: '2px solid #d4a574',
+              background: 'linear-gradient(145deg, #fefefe 0%, #f4f7f9 100%)',
+            }}
+          >
+            <Box sx={{ maxWidth: 900, mx: 'auto' }}>
               <Box component="form" onSubmit={sendMessage}>
-                <Stack spacing={1}>
+                <Stack direction="row" spacing={1} alignItems="center">
                   <TextField
                     fullWidth
                     value={input}
@@ -781,73 +793,35 @@ function App() {
                     placeholder={isListening ? "Listening..." : "What are you looking for?"}
                     disabled={isLoading || isListening}
                     variant="outlined"
-                    size="medium"
+                    size="small"
                   />
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <FormControl size="small" sx={{ minWidth: 100 }}>
-                      <Select
-                        value={selectedModel}
-                        onChange={(e) => setSelectedModel(e.target.value)}
-                        disabled={isLoading}
-                        sx={{
-                          fontSize: '0.75rem',
-                          color: '#233D4B',
-                          '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(35, 61, 75, 0.23)' },
-                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(35, 61, 75, 0.5)' },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#233D4B' },
-                          background: 'white',
-                        }}
-                      >
-                        <MenuItem value="claude-sonnet-4-20250514" sx={{ fontSize: '0.75rem' }}>Sonnet</MenuItem>
-                        <MenuItem value="claude-opus-4-20250514" sx={{ fontSize: '0.75rem' }}>Opus</MenuItem>
-                      </Select>
-                    </FormControl>
-                    
-                    <Box sx={{ flexGrow: 1 }} />
-                    
-                    <IconButton 
-                      onClick={isListening ? stopListening : startListening}
-                      disabled={isLoading}
-                      color={isListening ? 'secondary' : 'default'}
-                      sx={{ p: 1.5, color: isListening ? undefined : '#233D4B !important' }}
-                    >
-                      {isListening ? <MicOffIcon /> : <MicIcon />}
-                    </IconButton>
-                    
-                    <Button
-                      type="submit"
-                      disabled={isLoading || !input.trim()}
-                      variant="contained"
-                      size="large"
-                      endIcon={<SendIcon />}
-                      sx={{ px: 3 }}
-                    >
-                      Send
-                    </Button>
-                  </Stack>
+                  
+                  <IconButton 
+                    onClick={isListening ? stopListening : startListening}
+                    disabled={isLoading}
+                    sx={{ 
+                      p: 1, 
+                      color: isListening ? '#d4a574 !important' : '#233D4B !important',
+                    }}
+                  >
+                    {isListening ? <MicOffIcon /> : <MicIcon />}
+                  </IconButton>
+                  
+                  <Button
+                    type="submit"
+                    disabled={isLoading || !input.trim()}
+                    variant="contained"
+                    endIcon={<SendIcon />}
+                    sx={{ px: 2, whiteSpace: 'nowrap', minWidth: 'auto' }}
+                  >
+                    Send
+                  </Button>
                 </Stack>
               </Box>
-            </Paper>
+            </Box>
           </Box>
-        </Container>
+        </Box>
       </Box>
-      
-      {/* Floating Avatar */}
-      {showFloatingAvatar && (
-        <div className={`floating-avatar ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
-          <div className="floating-avatar-inner">
-            <img 
-              src="/girl.png" 
-              alt="Daisy Flowers" 
-              className="floating-avatar-image"
-            />
-            <div className="floating-mouth-overlay">
-              <div className="floating-mouth-animation"></div>
-            </div>
-            <div className="floating-avatar-pulse"></div>
-          </div>
-        </div>
-      )}
     </ThemeProvider>
   )
 }

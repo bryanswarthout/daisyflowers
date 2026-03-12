@@ -132,9 +132,30 @@
   background: linear-gradient(145deg, #ffffff 0%, #f7f9fa 100%) !important;
 }
 
-/* Header paper should use the dark teal background */
-.header-paper {
-  background: linear-gradient(135deg, #233D4B 0%, #3A6378 100%) !important;
+/* Sidebar paper should not override background */
+.sidebar .MuiPaper-root {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Mobile mini avatar in top bar */
+.avatar-mini {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar-mini-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.avatar-mini.speaking .avatar-mini-image {
+  animation: bobble 0.5s ease-in-out infinite;
 }
 
 .MuiCard-root {
@@ -184,11 +205,11 @@
   border-color: #233D4B !important;
 }
 
-.MuiIconButton-root {
+.sidebar .MuiIconButton-root {
   color: rgba(255, 255, 255, 0.8) !important;
 }
 
-.MuiIconButton-root:hover {
+.sidebar .MuiIconButton-root:hover {
   color: rgba(255, 255, 255, 1) !important;
   background-color: rgba(255, 255, 255, 0.1) !important;
 }
@@ -464,45 +485,5 @@
   100% {
     transform: scale(1.6);
     opacity: 0;
-  }
-}
-
-  .chat-container {
-    padding: 0.5rem;
-  }
-
-  .message-content {
-    width: 320px;
-    max-width: 85%;
-  }
-
-  .input-form {
-    padding: 0.75rem;
-  }
-
-  .message-input {
-    font-size: 0.9rem;
-  }
-
-  .send-button {
-    padding: 0.875rem 1.5rem;
-    font-size: 0.9rem;
-  }
-
-  .product-card {
-    flex-direction: column;
-  }
-
-  .product-image {
-    width: 100%;
-    height: 200px;
-  }
-
-  .product-name {
-    font-size: 1rem;
-  }
-
-  .product-price {
-    font-size: 1.1rem;
   }
 }
