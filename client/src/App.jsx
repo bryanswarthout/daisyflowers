@@ -156,14 +156,14 @@ function App() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [recognition, setRecognition] = useState(null)
-  const [speechEnabled, setSpeechEnabled] = useState(true)
+  const [speechEnabled, setSpeechEnabled] = useState(false)
   const [isPlayingAudio, setIsPlayingAudio] = useState(false)
   const [typewriterText, setTypewriterText] = useState('')
   const [isTypewriting, setIsTypewriting] = useState(false)
   const [showFloatingAvatar, setShowFloatingAvatar] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-20250514')
-  const [selectedVoice, setSelectedVoice] = useState('EXAVITQu4vr4xnSDxMaL')
+  const [selectedVoice, setSelectedVoice] = useState('z9fAnlkpzviPz146aGWa')
   const messagesEndRef = useRef(null)
   const typewriterRef = useRef(null)
   const avatarRef = useRef(null)
@@ -511,14 +511,14 @@ function App() {
           </IconButton>
 
           {/* Avatar */}
-          <Box sx={{ mb: 2 }} ref={avatarRef}>
+          <Box sx={{ mb: 0 }} ref={avatarRef}>
             <div className="avatar-container">
               <div className={`avatar ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
                 <img 
-                  src="/girl.png" 
-                  alt="Daisy Flowers" 
+                  src="/bh-logo.png" 
+                  alt="Beyond Hello" 
                   className="avatar-image"
-                />
+/>
                 <div className="mouth-overlay">
                   <div className="mouth-animation"></div>
                 </div>
@@ -530,14 +530,12 @@ function App() {
           <Typography variant="h6" component="h1" sx={{ color: 'white', fontWeight: 700, mb: 0.25, fontSize: '1.1rem', textAlign: 'center' }}>
             Daisy Flowers
           </Typography>
-          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.75)', mb: 2, textAlign: 'center', lineHeight: 1.3 }}>
+          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.75)', mb: 0.5, textAlign: 'center', lineHeight: 1.3 }}>
             Your AI Budtender from Beyond Hello
           </Typography>
-          
-          <Divider sx={{ width: '80%', borderColor: 'rgba(255,255,255,0.15)', mb: 2 }} />
 
           {/* Voice controls */}
-          <Stack spacing={1} alignItems="center" sx={{ width: '100%', px: 0.5 }}>
+          <Stack spacing={1} alignItems="center" sx={{ width: '100%', px: 0.5, mb: 2 }}>
             <Stack direction="row" spacing={0.5} alignItems="center">
               <IconButton 
                 onClick={toggleSpeech}
@@ -551,6 +549,7 @@ function App() {
                 {speechEnabled ? 'Voice On' : 'Voice Off'}
               </Typography>
             </Stack>
+            {/* Voice dropdown hidden for now
             {speechEnabled && (
               <FormControl size="small" sx={{ width: '100%' }}>
                 <Select
@@ -575,6 +574,7 @@ function App() {
                 </Select>
               </FormControl>
             )}
+            */}
           </Stack>
 
           <Box sx={{ flexGrow: 1 }} />
@@ -621,7 +621,7 @@ function App() {
               <MenuIcon />
             </IconButton>
             <div className={`avatar-mini ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
-              <img src="/girl.png" alt="Daisy" className="avatar-mini-image" />
+              <img src="/bh-logo.png" alt="Beyond Hello" className="avatar-mini-image" />
             </div>
             <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 600 }}>
               Daisy Flowers

@@ -173,7 +173,7 @@ function generateProductUrl(product) {
     .replace(/-+/g, '-')             // Collapse multiple hyphens
     .replace(/^-+|-+$/g, '');        // Trim leading/trailing hyphens
   
-  return `${BASE_URL}/${productId}/${slug || `product-${productId}`}`;
+  return `${BASE_URL}/${productId}/${slug || `product-${productId}`}?utm_source=daisy`;
 }
 
 // Session management
