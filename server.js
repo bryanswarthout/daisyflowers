@@ -5,7 +5,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { scrapeMenu, buildMenuContext, annotateProductsWithDeals } = require('./menu-scraper');
-const { buildDocumentContext } = require('./doc-parser');
+const { buildDocumentContext, loadAllDocuments } = require('./doc-parser');
 
 // Architecture: User query → extractUserIntent → scoreProduct (all products) → enrich with live menu data → send ALL to Claude → Claude selects 2-3 → match back to product cards
 
@@ -41,6 +41,32 @@ let productsCache = null;
 let lastFetchTime = null;
 let loadingPromise = null; // Store the loading promise to prevent concurrent API calls
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+
+// Daily cache for menu context and deal map (refreshes once per day)
+let dailyMenuContext = null;
+let dailyDealMap = null;
+let dailyCacheDate = null;
+
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+}
+
+async function getDailyMenuData() {
+  const today = getTodayKey();
+  if (dailyCacheDate === today && dailyMenuContext !== null && dailyDealMap !== null) {
+    return { menuContext: dailyMenuContext, dealMap: dailyDealMap };
+  }
+  console.log(`[DailyCache] Refreshing menu cache for ${today}...`);
+  const [menuContext, menuData] = await Promise.all([
+    buildMenuContext(),
+    scrapeMenu(true),
+  ]);
+  dailyMenuContext = menuContext;
+  dailyDealMap = menuData.deal_map;
+  dailyCacheDate = today;
+  console.log(`[DailyCache] Menu cache ready. ${dailyDealMap ? dailyDealMap.size : 0} deals loaded.`);
+  return { menuContext: dailyMenuContext, dealMap: dailyDealMap };
+}
 
 // Track conversation and shown products
 const conversationMemory = new Map(); // sessionId -> { shownProducts: Set, lastCategory: string }
@@ -814,13 +840,12 @@ async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = fa
   let liveMenuContext = '';
   let dealMap = null;
   try {
-    const [menuContext, menuData, docContext] = await Promise.all([
-      buildMenuContext(),
-      scrapeMenu(),
+    const [{ menuContext, dealMap: cachedDealMap }, docContext] = await Promise.all([
+      getDailyMenuData(),
       buildDocumentContext(userQuery),
     ]);
     liveMenuContext = menuContext + (docContext || '');
-    dealMap = menuData.deal_map;
+    dealMap = cachedDealMap;
     
     // Boost scores for products that have active deals/specials
     if (dealMap && dealMap.size > 0) {
@@ -1281,7 +1306,25 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🌼 Daisy Flowers API Server running on http://localhost:${PORT}`);
-  console.log('Ready to serve requests - products will be loaded on demand');
+  
+  // Pre-load daily caches at startup
+  try {
+    console.log('[Startup] Pre-loading PDF documents...');
+    await loadAllDocuments();
+    console.log('[Startup] PDF documents cached.');
+  } catch (err) {
+    console.warn('[Startup] PDF pre-load failed (will load on demand):', err.message);
+  }
+  
+  try {
+    console.log('[Startup] Pre-loading menu data...');
+    await getDailyMenuData();
+    console.log('[Startup] Menu data cached.');
+  } catch (err) {
+    console.warn('[Startup] Menu pre-load failed (will load on demand):', err.message);
+  }
+  
+  console.log('Ready to serve requests');
 });

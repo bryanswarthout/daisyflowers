@@ -513,16 +513,12 @@ function App() {
           {/* Avatar */}
           <Box sx={{ mb: 0 }} ref={avatarRef}>
             <div className="avatar-container">
-              <div className={`avatar ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
+              <div className="avatar">
                 <img 
                   src="/bh-logo.png" 
                   alt="Beyond Hello" 
                   className="avatar-image"
 />
-                <div className="mouth-overlay">
-                  <div className="mouth-animation"></div>
-                </div>
-                <div className="avatar-pulse"></div>
               </div>
             </div>
           </Box>
