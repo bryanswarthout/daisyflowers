@@ -156,7 +156,7 @@ function App() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [recognition, setRecognition] = useState(null)
-  const [speechEnabled, setSpeechEnabled] = useState(false)
+  const [speechEnabled, setSpeechEnabled] = useState(true)
   const [isPlayingAudio, setIsPlayingAudio] = useState(false)
   const [typewriterText, setTypewriterText] = useState('')
   const [isTypewriting, setIsTypewriting] = useState(false)
@@ -279,11 +279,29 @@ function App() {
 
     if (!cleanText) return
 
+    // Expand abbreviations for speech
+    const speechText = cleanText
+      .replace(/\s*\|\s*/g, ', ')             // pipe → comma pause
+      .replace(/\/g\b/gi, ' per gram')
+      .replace(/\/oz\b/gi, ' per ounce')
+      .replace(/\/mg\b/gi, ' per milligram')
+      .replace(/\/lb\b/gi, ' per pound')
+      .replace(/\/ml\b/gi, ' per milliliter')
+      .replace(/(\d)mg\b/gi, '$1 milligrams')  // 100mg → 100 milligrams
+      .replace(/(\d)g\b/gi, '$1 grams')         // 3.5g → 3.5 grams
+      .replace(/(\d)pk\b/gi, '$1 pack')          // 10pk → 10 pack
+      .replace(/(\d)oz\b/gi, '$1 ounce')         // 8oz → 8 ounce
+      .replace(/(\d)ml\b/gi, '$1 milliliters')   // 30ml → 30 milliliters
+      .replace(/(\d)lb\b/gi, '$1 pounds')        // 1lb → 1 pounds
+      .replace(/\bmg\b/gi, 'milligrams')
+      .replace(/\bpk\b/gi, 'pack')
+      .replace(/\boz\b/gi, 'ounce')
+
     try {
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanText, voiceId: selectedVoice }),
+        body: JSON.stringify({ text: speechText, voiceId: selectedVoice }),
       })
 
       if (!response.ok) {
@@ -315,6 +333,7 @@ function App() {
         audioRef.current = null
       }
 
+      audio.playbackRate = 1.15
       audio.play()
     } catch (error) {
       console.error('TTS fetch error:', error)
@@ -323,11 +342,55 @@ function App() {
     }
   }
 
-  const typewriterWithSpeech = (text, callback) => {
+  // Pre-fetch TTS audio and return a ready-to-play Audio element
+  const prefetchAudio = async (cleanText) => {
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cleanText, voiceId: selectedVoice }),
+      })
+
+      if (!response.ok) {
+        console.error('ElevenLabs TTS error:', response.status)
+        return null
+      }
+
+      const audioBlob = await response.blob()
+      const audioUrl = URL.createObjectURL(audioBlob)
+      const audio = new Audio(audioUrl)
+
+      audio.onplay = () => {
+        setIsPlayingAudio(true)
+        setIsSpeaking(true)
+      }
+
+      audio.onended = () => {
+        setIsPlayingAudio(false)
+        setTimeout(() => setIsSpeaking(false), 500)
+        URL.revokeObjectURL(audioUrl)
+        audioRef.current = null
+      }
+
+      audio.onerror = () => {
+        setIsPlayingAudio(false)
+        setIsSpeaking(false)
+        URL.revokeObjectURL(audioUrl)
+        audioRef.current = null
+      }
+
+      return audio
+    } catch (error) {
+      console.error('TTS prefetch error:', error)
+      return null
+    }
+  }
+
+  const typewriterWithSpeech = async (text, callback) => {
     setIsTypewriting(true)
     setTypewriterText('')
     
-    // Clean text for both display and speech
+    // Clean text for display
     const cleanText = text
       .replace(/\*\*/g, '')
       .replace(/\*/g, '')
@@ -335,13 +398,51 @@ function App() {
       .replace(/\n+/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
+
+    // Expand abbreviations for speech
+    const speechText = cleanText
+      .replace(/\s*\|\s*/g, ', ')             // pipe → comma pause
+      .replace(/\/g\b/gi, ' per gram')
+      .replace(/\/oz\b/gi, ' per ounce')
+      .replace(/\/mg\b/gi, ' per milligram')
+      .replace(/\/lb\b/gi, ' per pound')
+      .replace(/\/ml\b/gi, ' per milliliter')
+      .replace(/(\d)mg\b/gi, '$1 milligrams')  // 100mg → 100 milligrams
+      .replace(/(\d)g\b/gi, '$1 grams')         // 3.5g → 3.5 grams
+      .replace(/(\d)pk\b/gi, '$1 pack')          // 10pk → 10 pack
+      .replace(/(\d)oz\b/gi, '$1 ounce')         // 8oz → 8 ounce
+      .replace(/(\d)ml\b/gi, '$1 milliliters')   // 30ml → 30 milliliters
+      .replace(/(\d)lb\b/gi, '$1 pounds')        // 1lb → 1 pounds
+      .replace(/\bmg\b/gi, 'milligrams')
+      .replace(/\bpk\b/gi, 'pack')
+      .replace(/\boz\b/gi, 'ounce')
     
     const words = cleanText.split(' ')
     let currentIndex = 0
-    
-    // Start speech immediately if enabled
+
+    // Pre-fetch audio before starting typewriter so both begin together
+    let audio = null
     if (speechEnabled) {
-      speakText(cleanText)
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      audio = await prefetchAudio(speechText)
+    }
+    
+    // Calculate ms per word to match audio duration
+    let msPerWord = 350 // default fallback when speech is off
+    if (audio && audio.duration && isFinite(audio.duration)) {
+      // Match typewriter to audio length, leave a small buffer at the end
+      msPerWord = Math.floor((audio.duration * 1000 * 0.95) / words.length)
+      msPerWord = Math.max(msPerWord, 80) // floor so it never feels frozen
+    }
+
+    // Start both at the same time
+    if (audio) {
+      audioRef.current = audio
+      audio.playbackRate = 1.15
+      audio.play()
     }
     
     const timer = setInterval(() => {
@@ -356,7 +457,7 @@ function App() {
         setTypewriterText('')
         if (callback) callback()
       }
-    }, 130) // Slower to match feminine speech pace
+    }, msPerWord)
     
     typewriterRef.current = timer
   }
@@ -422,8 +523,8 @@ function App() {
         }
         setMessages(prev => [...prev, emptyMessage])
         
-        // Start synchronized typewriter and speech
-        typewriterWithSpeech(data.response, () => {
+        // Start synchronized typewriter and speech (awaits TTS prefetch)
+        await typewriterWithSpeech(data.response, () => {
           // Replace with final message
           const finalMessage = { 
             role: 'assistant', 
@@ -436,7 +537,9 @@ function App() {
             return newMessages
           })
         })
+        setIsLoading(false)
       } else {
+        setIsLoading(false)
         setMessages(prev => [...prev, { 
           role: 'assistant', 
           content: `Sorry, I encountered an error: ${data.error}`,
@@ -444,13 +547,12 @@ function App() {
         }])
       }
     } catch (error) {
+      setIsLoading(false)
       setMessages(prev => [...prev, { 
         role: 'assistant', 
         content: 'Sorry, I couldn\'t connect to the server. Please make sure it\'s running.',
         products: []
       }])
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -577,7 +679,7 @@ function App() {
 
           {/* Model selector at bottom */}
           <Divider sx={{ width: '80%', borderColor: 'rgba(255,255,255,0.15)', mb: 1.5, mt: 2 }} />
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mb: 0.5 }}>Model</Typography>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mb: 0.5 }}>Mode</Typography>
           <FormControl size="small" sx={{ width: '100%', px: 0.5 }}>
             <Select
               value={selectedModel}
@@ -593,8 +695,8 @@ function App() {
                 '.MuiSvgIcon-root': { color: 'rgba(255,255,255,0.5)' },
               }}
             >
-              <MenuItem value="claude-sonnet-4-20250514" sx={{ fontSize: '0.75rem' }}>Sonnet</MenuItem>
-              <MenuItem value="claude-opus-4-20250514" sx={{ fontSize: '0.75rem' }}>Opus</MenuItem>
+              <MenuItem value="claude-sonnet-4-20250514" sx={{ fontSize: '0.75rem' }}>Newbie</MenuItem>
+              <MenuItem value="claude-opus-4-20250514" sx={{ fontSize: '0.75rem' }}>Connoisseur</MenuItem>
             </Select>
           </FormControl>
         </Box>
@@ -663,7 +765,7 @@ function App() {
                         </Typography>
                         <Grid container spacing={2}>
                           {msg.products.map((product, pIdx) => (
-                            <Grid size={{ xs: 12, sm: 6 }} key={pIdx}>
+                            <Grid size={{ xs: 4 }} key={pIdx}>
                               <Card 
                                 elevation={2} 
                                 sx={{ 
@@ -671,6 +773,11 @@ function App() {
                                   display: 'flex',
                                   flexDirection: 'column',
                                   transition: 'all 0.3s ease',
+                                  animation: `fadeIn 0.6s ease ${pIdx * 0.2}s both`,
+                                  '@keyframes fadeIn': {
+                                    from: { opacity: 0, transform: 'translateY(10px)' },
+                                    to: { opacity: 1, transform: 'translateY(0)' },
+                                  },
                                   '&:hover': {
                                     elevation: 4,
                                     transform: 'translateY(-2px)'
@@ -680,10 +787,9 @@ function App() {
                                 {product.image && (
                                   <CardMedia
                                     component="img"
-                                    height="200"
                                     image={product.image}
                                     alt={product.name}
-                                    sx={{ objectFit: 'contain', backgroundColor: '#f5f5f5' }}
+                                    sx={{ width: '100%', objectFit: 'contain', backgroundColor: '#f5f5f5' }}
                                   />
                                 )}
                                 <CardContent sx={{ flexGrow: 1 }}>

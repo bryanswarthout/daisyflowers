@@ -132,7 +132,7 @@ Product Card Format (use markdown):
 
 Output Format: 
 - 1 short intro sentence naming the products, then cards. No extra explanation.
-- 2 product cards max. 
+- 3 product cards always. 
 - After cards, add this line: "This isn't medical advice. Availability may vary by store."`;
 
   const userPrompt = `User Question: ${userQuery}
@@ -140,7 +140,7 @@ Output Format:
 Products Available - ALL products below are ONLY ${categoryFilter ? categoryFilter.toUpperCase() : 'the requested category'}:
 ${JSON.stringify(filteredProducts, null, 2)}
 
-REMEMBER: Every product in the list above has already been filtered to match the user's category request. They are ALL ${categoryFilter ? categoryFilter + 's' : 'the correct type'}. Simply pick the best 2 products from this pre-filtered list.`;
+REMEMBER: Every product in the list above has already been filtered to match the user's category request. They are ALL ${categoryFilter ? categoryFilter + 's' : 'the correct type'}. Simply pick the best 3 products from this pre-filtered list.`;
 
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify({
