@@ -3,7 +3,6 @@
 A chatbot application that helps users find cannabis products using AI-powered recommendations.
 
 ## Setup
-
 ### Prerequisites
 - Node.js (v14 or higher)
 - npm or yarn
