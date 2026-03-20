@@ -566,7 +566,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', backgroundColor: 'background.default' }}>
+      <Box sx={{ display: 'flex', height: '100dvh', overflow: 'hidden', backgroundColor: 'background.default' }}>
         
         {/* Mobile overlay */}
         {sidebarOpen && (
@@ -588,7 +588,7 @@ function App() {
           sx={{
             width: { xs: 260, md: desktopSidebarOpen ? 240 : 0 },
             minWidth: { xs: 260, md: desktopSidebarOpen ? 240 : 0 },
-            height: '100vh',
+            height: '100dvh',
             background: 'linear-gradient(180deg, #233D4B 0%, #1a3040 50%, #192C37 100%)',
             display: 'flex',
             flexDirection: 'column',
@@ -728,7 +728,7 @@ function App() {
         </Box>
 
         {/* Main Chat Area */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', minWidth: 0, position: 'relative' }}>
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100dvh', minWidth: 0, position: 'relative' }}>
           
           {/* Desktop sidebar expand button (shown when collapsed) */}
           {!desktopSidebarOpen && (
@@ -758,6 +758,7 @@ function App() {
               alignItems: 'center',
               px: 1.5,
               py: 1,
+              paddingTop: 'max(8px, env(safe-area-inset-top))',
               background: 'linear-gradient(135deg, #233D4B 0%, #3A6378 100%)',
               gap: 1.5,
             }}
@@ -937,6 +938,7 @@ function App() {
           <Box
             sx={{
               p: { xs: 1, sm: 1.5, md: 2 },
+              pb: { xs: 'max(8px, env(safe-area-inset-bottom))', sm: 1.5, md: 2 },
               borderTop: '2px solid #d4a574',
               background: 'linear-gradient(145deg, #fefefe 0%, #f4f7f9 100%)',
             }}

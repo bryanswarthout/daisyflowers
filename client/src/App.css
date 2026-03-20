@@ -1,4 +1,12 @@
-﻿/* Restored Original Avatar Styles with Full Animations */
+﻿/* Mobile viewport fix - ensure safe area insets are respected */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .MuiBox-root {
+    --safe-bottom: env(safe-area-inset-bottom);
+    --safe-top: env(safe-area-inset-top);
+  }
+}
+
+/* Restored Original Avatar Styles with Full Animations */
 
 /* Avatar Container */
 .avatar-container {
