@@ -765,9 +765,7 @@ function App() {
             <IconButton onClick={() => setSidebarOpen(true)} sx={{ color: 'white !important' }}>
               <MenuIcon />
             </IconButton>
-            <div className={`avatar-mini ${isSpeaking || isTypewriting ? 'speaking' : ''}`}>
-              <img src="/bh-logo.png" alt="Beyond Hello" className="avatar-mini-image" />
-            </div>
+          
             <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 600 }}>
               Daisy Menu Pro
             </Typography>
