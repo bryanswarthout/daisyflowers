@@ -700,7 +700,7 @@ function validateAIResponse(responseText, validProductNames) {
 }
 
 // Function to analyze with AI
-async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = false, conversationHistory = [], modelOverride = null) {
+async function analyzeWithAI(products, userQuery, sessionId = null, isRetry = false, conversationHistory = [], modelOverride = null, mode = null) {
   // STEP 1 — Extract intent (pass full product list for brand/product name detection)
   const intent = extractUserIntent(userQuery, products);
   console.log('User intent:', JSON.stringify(intent));
@@ -913,9 +913,10 @@ ABSOLUTE RULES:
 
 CRITICAL: After each product name you recommend, include its product_id in brackets like this: [ID:48743]. This is required for our system to match your recommendations to product cards. Do not skip this.`;
 
-  // Adjust response style based on model
+  // Adjust response style based on mode
   const isOpus = modelOverride && modelOverride.includes('opus');
-  if (isOpus) {
+  const isVerbose = mode === 'connoisseur';
+  if (isVerbose) {
     systemPrompt += `
 
 RESPONSE STYLE:
@@ -1076,10 +1077,10 @@ Remember: Pick the products that best match what the customer is asking for. If 
 }
 
 // Wrapper function with retry logic and graceful fallback
-async function analyzeWithAIWithRetry(products, userQuery, sessionId = null, history = [], model = null) {
+async function analyzeWithAIWithRetry(products, userQuery, sessionId = null, history = [], model = null, mode = null) {
   try {
     // First attempt
-    const result = await analyzeWithAI(products, userQuery, sessionId, false, history, model);
+    const result = await analyzeWithAI(products, userQuery, sessionId, false, history, model, mode);
     
     // Check if we got product matches or if retry is needed
     const needsRetry = result.products.length === 0 && 
@@ -1089,7 +1090,7 @@ async function analyzeWithAIWithRetry(products, userQuery, sessionId = null, his
       console.log('No products matched, retrying with more explicit prompt...');
       
       // Retry once with more explicit instructions
-      const retryResult = await analyzeWithAI(products, userQuery, sessionId, true, history, model);
+      const retryResult = await analyzeWithAI(products, userQuery, sessionId, true, history, model, mode);
       
       if (retryResult.products.length > 0) {
         console.log('Retry successful!');
@@ -1231,7 +1232,7 @@ app.post('/api/chat', async (req, res) => {
   console.log('=== /api/chat endpoint called ===');
   
   try {
-    let { message, history, model } = req.body;
+    let { message, history, model, mode } = req.body;
     console.log('✅ Request body parsed successfully');
     
     if (!message) {
@@ -1290,7 +1291,12 @@ app.post('/api/chat', async (req, res) => {
     console.log('🤖 Starting AI analysis...');
     
     // First attempt
-    let result = await analyzeWithAIWithRetry(products, message, sessionId, history, model);
+    // Resolve model from mode (mode takes priority over legacy model field)
+    const modeModelMap = { newbie: 'claude-sonnet-4-20250514', explorer: 'claude-opus-4-20250514', connoisseur: 'claude-opus-4-20250514' };
+    const resolvedModel = mode ? (modeModelMap[mode] || 'claude-sonnet-4-20250514') : model;
+    const resolvedMode = mode || (model && model.includes('opus') ? 'connoisseur' : 'newbie');
+    
+    let result = await analyzeWithAIWithRetry(products, message, sessionId, history, resolvedModel, resolvedMode);
     console.log('✅ AI analysis complete');
 
     console.log('✅ Sending response...');

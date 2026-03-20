@@ -162,7 +162,7 @@ function App() {
   const [isTypewriting, setIsTypewriting] = useState(false)
   const [showFloatingAvatar, setShowFloatingAvatar] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-20250514')
+  const [selectedMode, setSelectedMode] = useState('newbie')
   const [selectedVoice, setSelectedVoice] = useState('z9fAnlkpzviPz146aGWa')
   const messagesEndRef = useRef(null)
   const typewriterRef = useRef(null)
@@ -508,7 +508,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: userMessage, history, model: selectedModel })
+        body: JSON.stringify({ message: userMessage, history, mode: selectedMode })
       })
 
       const data = await response.json()
@@ -682,8 +682,8 @@ function App() {
           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mb: 0.5 }}>Mode</Typography>
           <FormControl size="small" sx={{ width: '100%', px: 0.5 }}>
             <Select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
+              value={selectedMode}
+              onChange={(e) => setSelectedMode(e.target.value)}
               disabled={isLoading}
               sx={{
                 fontSize: '0.75rem',
@@ -695,8 +695,9 @@ function App() {
                 '.MuiSvgIcon-root': { color: 'rgba(255,255,255,0.5)' },
               }}
             >
-              <MenuItem value="claude-sonnet-4-20250514" sx={{ fontSize: '0.75rem' }}>Newbie</MenuItem>
-              <MenuItem value="claude-opus-4-20250514" sx={{ fontSize: '0.75rem' }}>Connoisseur</MenuItem>
+              <MenuItem value="newbie" sx={{ fontSize: '0.75rem' }}>Newbie</MenuItem>
+              <MenuItem value="explorer" sx={{ fontSize: '0.75rem' }}>Explorer</MenuItem>
+              <MenuItem value="connoisseur" sx={{ fontSize: '0.75rem' }}>Connoisseur</MenuItem>
             </Select>
           </FormControl>
         </Box>
@@ -765,7 +766,7 @@ function App() {
                         </Typography>
                         <Grid container spacing={2}>
                           {msg.products.map((product, pIdx) => (
-                            <Grid size={{ xs: 4 }} key={pIdx}>
+                            <Grid size={{ xs: 12, sm: 4 }} key={pIdx}>
                               <Card 
                                 elevation={2} 
                                 sx={{ 
