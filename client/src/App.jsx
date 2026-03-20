@@ -28,7 +28,9 @@ import {
   VolumeOff as VolumeOffIcon,
   RecordVoiceOver as RecordVoiceOverIcon,
   Menu as MenuIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -147,7 +149,7 @@ function App() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: "Hi! I'm Daisy Flowers from Beyond Hello. What are you looking for today?",
+      content: "Hi! I'm Daisy Menu Pro from Beyond Hello. What are you looking for today?",
       products: []
     }
   ])
@@ -156,12 +158,13 @@ function App() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [recognition, setRecognition] = useState(null)
-  const [speechEnabled, setSpeechEnabled] = useState(true)
+  const [speechEnabled, setSpeechEnabled] = useState(false)
   const [isPlayingAudio, setIsPlayingAudio] = useState(false)
   const [typewriterText, setTypewriterText] = useState('')
   const [isTypewriting, setIsTypewriting] = useState(false)
   const [showFloatingAvatar, setShowFloatingAvatar] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
   const [selectedMode, setSelectedMode] = useState('newbie')
   const [selectedVoice, setSelectedVoice] = useState('z9fAnlkpzviPz146aGWa')
   const messagesEndRef = useRef(null)
@@ -431,7 +434,7 @@ function App() {
     }
     
     // Calculate ms per word to match audio duration
-    let msPerWord = 350 // default fallback when speech is off
+    let msPerWord = 60 // fast typewriter when speech is off
     if (audio && audio.duration && isFinite(audio.duration)) {
       // Match typewriter to audio length, leave a small buffer at the end
       msPerWord = Math.floor((audio.duration * 1000 * 0.95) / words.length)
@@ -444,11 +447,15 @@ function App() {
       audio.playbackRate = 1.15
       audio.play()
     }
+
+    // Show first word immediately to prevent cut-off
+    setTypewriterText(words[0])
+    currentIndex = 1
     
     const timer = setInterval(() => {
       if (currentIndex < words.length) {
         setTypewriterText(prev => 
-          prev + (currentIndex === 0 ? '' : ' ') + words[currentIndex]
+          prev + ' ' + words[currentIndex]
         )
         currentIndex++
       } else {
@@ -579,23 +586,25 @@ function App() {
         <Box
           className="sidebar"
           sx={{
-            width: { xs: 260, md: 240 },
-            minWidth: { xs: 260, md: 240 },
+            width: { xs: 260, md: desktopSidebarOpen ? 240 : 0 },
+            minWidth: { xs: 260, md: desktopSidebarOpen ? 240 : 0 },
             height: '100vh',
             background: 'linear-gradient(180deg, #233D4B 0%, #1a3040 50%, #192C37 100%)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             py: 3,
-            px: 1.5,
+            px: { xs: 1.5, md: desktopSidebarOpen ? 1.5 : 0 },
             position: { xs: 'fixed', md: 'relative' },
             left: { xs: sidebarOpen ? 0 : -260, md: 0 },
             top: 0,
             zIndex: { xs: 1200, md: 1 },
-            transition: 'left 0.3s ease',
-            boxShadow: { xs: sidebarOpen ? '4px 0 20px rgba(0,0,0,0.3)' : 'none', md: '2px 0 10px rgba(0,0,0,0.1)' },
+            transition: 'all 0.3s ease',
+            boxShadow: { xs: sidebarOpen ? '4px 0 20px rgba(0,0,0,0.3)' : 'none', md: desktopSidebarOpen ? '2px 0 10px rgba(0,0,0,0.1)' : 'none' },
             overflowY: 'auto',
             overflowX: 'hidden',
+            opacity: { xs: 1, md: desktopSidebarOpen ? 1 : 0 },
+            pointerEvents: { xs: 'auto', md: desktopSidebarOpen ? 'auto' : 'none' },
           }}
         >
           {/* Mobile close button */}
@@ -612,8 +621,24 @@ function App() {
             <CloseIcon />
           </IconButton>
 
+          {/* Desktop collapse button */}
+          <IconButton
+            onClick={() => setDesktopSidebarOpen(false)}
+            sx={{
+              display: { xs: 'none', md: 'flex' },
+              position: 'absolute',
+              top: 8,
+              right: 4,
+              color: 'rgba(255,255,255,0.5)',
+              '&:hover': { color: 'rgba(255,255,255,0.8)' },
+              padding: '4px',
+            }}
+          >
+            <ChevronLeftIcon fontSize="small" />
+          </IconButton>
+
           {/* Avatar */}
-          <Box sx={{ mb: 0 }} ref={avatarRef}>
+          <Box sx={{ mb: 0, display: { xs: 'none', md: 'block' } }} ref={avatarRef}>
             <div className="avatar-container">
               <div className="avatar">
                 <img 
@@ -626,7 +651,7 @@ function App() {
           </Box>
           
           <Typography variant="h6" component="h1" sx={{ color: 'white', fontWeight: 700, mb: 0.25, fontSize: '1.1rem', textAlign: 'center' }}>
-            Daisy Flowers
+            Daisy Menu Pro
           </Typography>
           <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.75)', mb: 0.5, textAlign: 'center', lineHeight: 1.3 }}>
             Your AI Budtender from Beyond Hello
@@ -703,8 +728,29 @@ function App() {
         </Box>
 
         {/* Main Chat Area */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', minWidth: 0 }}>
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', minWidth: 0, position: 'relative' }}>
           
+          {/* Desktop sidebar expand button (shown when collapsed) */}
+          {!desktopSidebarOpen && (
+            <IconButton
+              onClick={() => setDesktopSidebarOpen(true)}
+              sx={{
+                display: { xs: 'none', md: 'flex' },
+                position: 'absolute',
+                top: 12,
+                left: 12,
+                zIndex: 10,
+                bgcolor: '#233D4B',
+                color: 'rgba(255,255,255,0.8)',
+                '&:hover': { bgcolor: '#2d4f5f' },
+                width: 32,
+                height: 32,
+              }}
+            >
+              <ChevronRightIcon fontSize="small" />
+            </IconButton>
+          )}
+
           {/* Mobile top bar */}
           <Box
             sx={{
@@ -723,7 +769,7 @@ function App() {
               <img src="/bh-logo.png" alt="Beyond Hello" className="avatar-mini-image" />
             </div>
             <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 600 }}>
-              Daisy Flowers
+              Daisy Menu Pro
             </Typography>
           </Box>
 
@@ -809,6 +855,17 @@ function App() {
                                       color="primary" 
                                       variant="outlined"
                                     />
+                                    {product.lineage && (
+                                      <Chip 
+                                        label={product.lineage.charAt(0).toUpperCase() + product.lineage.slice(1)} 
+                                        size="small" 
+                                        sx={{ 
+                                          borderColor: product.lineage === 'indica' ? '#7b1fa2' : product.lineage === 'sativa' ? '#e65100' : '#2e7d32',
+                                          color: product.lineage === 'indica' ? '#7b1fa2' : product.lineage === 'sativa' ? '#e65100' : '#2e7d32',
+                                        }}
+                                        variant="outlined"
+                                      />
+                                    )}
                                     {product.thc && (
                                       <Chip 
                                         label={`THC: ${product.thc}`} 
