@@ -149,7 +149,7 @@ function App() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: "Hi! I'm Daisy Menu Pro from Beyond Hello. What are you looking for today?",
+      content: "Hi! I'm Daisy Smart Menu from Beyond Hello. What are you looking for today?",
       products: []
     }
   ])
@@ -651,7 +651,7 @@ function App() {
           </Box>
           
           <Typography variant="h6" component="h1" sx={{ color: 'white', fontWeight: 700, mb: 0.25, fontSize: '1.1rem', textAlign: 'center' }}>
-            Daisy Menu Pro
+            Daisy Smart Menu
           </Typography>
           <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.75)', mb: 0.5, textAlign: 'center', lineHeight: 1.3 }}>
             Your AI Budtender from Beyond Hello
@@ -768,7 +768,7 @@ function App() {
             </IconButton>
           
             <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 600 }}>
-              Daisy Menu Pro
+              Daisy Smart Menu
             </Typography>
           </Box>
 
