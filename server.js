@@ -642,6 +642,32 @@ function buildProductCard(product) {
   
   const priceInfo = getBestPrice(product);
   
+  // Collect all available weight prices for cart functionality
+  const weightPriceKeys = [
+    { key: 'each', field: 'price_each', discounted: 'discounted_price_each', label: 'Each' },
+    { key: 'half_gram', field: 'price_half_gram', discounted: 'discounted_price_half_gram', label: '0.5g' },
+    { key: 'gram', field: 'price_gram', discounted: 'discounted_price_gram', label: '1g' },
+    { key: 'two_gram', field: 'price_two_gram', discounted: 'discounted_price_two_gram', label: '2g' },
+    { key: 'eighth_ounce', field: 'price_eighth_ounce', discounted: 'discounted_price_eighth_ounce', label: '3.5g' },
+    { key: 'quarter_ounce', field: 'price_quarter_ounce', discounted: 'discounted_price_quarter_ounce', label: '7g' },
+    { key: 'half_ounce', field: 'price_half_ounce', discounted: 'discounted_price_half_ounce', label: '14g' },
+    { key: 'ounce', field: 'price_ounce', discounted: 'discounted_price_ounce', label: '28g' },
+  ];
+
+  const weights = [];
+  for (const w of weightPriceKeys) {
+    const regular = product[w.field];
+    const discounted = product[w.discounted];
+    if (regular != null || discounted != null) {
+      weights.push({
+        key: w.key,
+        label: w.label,
+        price: discounted != null && regular != null && discounted < regular ? discounted : (regular || discounted),
+        originalPrice: discounted != null && regular != null && discounted < regular ? regular : null,
+      });
+    }
+  }
+
   return {
     name: product.name,
     brand: product.brand,
@@ -653,6 +679,7 @@ function buildProductCard(product) {
     cbd: product.percent_cbd != null && product.percent_cbd > 0.5 ? `${product.percent_cbd}%` : null,
     price: priceInfo.label,
     priceAmount: priceInfo.amount,
+    weights: weights,
     topTerpenes: topTerpenes,
     description: (product.description || '').substring(0, 200),
     path: generateProductUrl(product),

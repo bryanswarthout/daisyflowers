@@ -1,4 +1,6 @@
-﻿import { useState, useRef, useEffect } from 'react'
+﻿import { useState, useRef, useEffect, useContext } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { CartContext } from './CartContext'
 import { 
   Box, 
   Container, 
@@ -18,7 +20,10 @@ import {
   Link,
   FormControl,
   Select,
-  MenuItem
+  MenuItem,
+  Badge,
+  Snackbar,
+  Alert
 } from '@mui/material'
 import { 
   Mic as MicIcon,
@@ -30,7 +35,9 @@ import {
   Menu as MenuIcon,
   Close as CloseIcon,
   ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon
+  ChevronRight as ChevronRightIcon,
+  ShoppingCart as ShoppingCartIcon,
+  AddShoppingCart as AddShoppingCartIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -146,6 +153,9 @@ const theme = createTheme({
 })
 
 function App() {
+  const { addToCart, cartCount } = useContext(CartContext)
+  const navigate = useNavigate()
+  const [cartSnackbar, setCartSnackbar] = useState(false)
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -167,6 +177,7 @@ function App() {
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
   const [selectedMode, setSelectedMode] = useState('newbie')
   const [selectedVoice, setSelectedVoice] = useState('z9fAnlkpzviPz146aGWa')
+  const [selectedWeights, setSelectedWeights] = useState({})
   const messagesEndRef = useRef(null)
   const typewriterRef = useRef(null)
   const avatarRef = useRef(null)
@@ -725,6 +736,28 @@ function App() {
               <MenuItem value="connoisseur" sx={{ fontSize: '0.75rem' }}>Connoisseur</MenuItem>
             </Select>
           </FormControl>
+
+          {/* Cart button */}
+          <Button
+            onClick={() => navigate('/cart')}
+            startIcon={
+              <Badge badgeContent={cartCount} color="secondary" sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem', minWidth: 16, height: 16 } }}>
+                <ShoppingCartIcon fontSize="small" />
+              </Badge>
+            }
+            sx={{
+              mt: 1.5,
+              color: 'white',
+              borderColor: 'rgba(255,255,255,0.3)',
+              fontSize: '0.75rem',
+              '&:hover': { borderColor: 'rgba(255,255,255,0.6)', bgcolor: 'rgba(255,255,255,0.08)' },
+            }}
+            variant="outlined"
+            size="small"
+            fullWidth
+          >
+            View Cart
+          </Button>
         </Box>
 
         {/* Main Chat Area */}
@@ -767,9 +800,15 @@ function App() {
               <MenuIcon />
             </IconButton>
           
-            <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 600 }}>
+            <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 600, flex: 1 }}>
               Daisy Smart Menu
             </Typography>
+
+            <IconButton onClick={() => navigate('/cart')} sx={{ color: 'white !important' }}>
+              <Badge badgeContent={cartCount} color="secondary">
+                <ShoppingCartIcon />
+              </Badge>
+            </IconButton>
           </Box>
 
           {/* Messages */}
@@ -890,8 +929,66 @@ function App() {
                                   )}
                                 </CardContent>
 
-                                {product.path && (
-                                  <Box sx={{ p: 2, pt: 0 }}>
+                                <Box sx={{ p: 2, pt: 0 }}>
+                                  {/* Weight selector + Add to Cart */}
+                                  {product.weights && product.weights.length > 0 && (
+                                    <Stack spacing={1} sx={{ mb: 1 }}>
+                                      <Stack direction="row" spacing={1} alignItems="center">
+                                        <FormControl size="small" sx={{ flex: 1 }}>
+                                          <Select
+                                            value={selectedWeights[product.product_id] || product.weights[0].key}
+                                            onChange={(e) => setSelectedWeights(prev => ({ ...prev, [product.product_id]: e.target.value }))}
+                                            sx={{ fontSize: '0.8rem', height: 32 }}
+                                          >
+                                            {product.weights.map(w => (
+                                              <MenuItem key={w.key} value={w.key} sx={{ fontSize: '0.8rem' }}>
+                                                {w.originalPrice ? (
+                                                  <>{w.label} — <s>${w.originalPrice}</s> ${w.price}</>
+                                                ) : (
+                                                  <>{w.label} — ${w.price}</>
+                                                )}
+                                              </MenuItem>
+                                            ))}
+                                          </Select>
+                                        </FormControl>
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => {
+                                            const weightKey = selectedWeights[product.product_id] || product.weights[0].key
+                                            addToCart(product.product_id, weightKey)
+                                            setCartSnackbar(true)
+                                          }}
+                                          sx={{
+                                            bgcolor: '#233D4B',
+                                            color: 'white',
+                                            '&:hover': { bgcolor: '#3A6378' },
+                                            borderRadius: 1,
+                                            width: 32,
+                                            height: 32,
+                                          }}
+                                        >
+                                          <AddShoppingCartIcon fontSize="small" />
+                                        </IconButton>
+                                      </Stack>
+                                    </Stack>
+                                  )}
+                                  {/* Fallback: single add-to-cart if no weights */}
+                                  {(!product.weights || product.weights.length === 0) && product.product_id && (
+                                    <Button
+                                      variant="outlined"
+                                      size="small"
+                                      fullWidth
+                                      startIcon={<AddShoppingCartIcon />}
+                                      onClick={() => {
+                                        addToCart(product.product_id, 'each')
+                                        setCartSnackbar(true)
+                                      }}
+                                      sx={{ mb: 1 }}
+                                    >
+                                      Add to Cart
+                                    </Button>
+                                  )}
+                                  {product.path && (
                                     <Button
                                       component={Link}
                                       href={product.path}
@@ -903,8 +1000,8 @@ function App() {
                                     >
                                       View Product
                                     </Button>
-                                  </Box>
-                                )}
+                                  )}
+                                </Box>
                               </Card>
                             </Grid>
                           ))}
@@ -982,6 +1079,18 @@ function App() {
           </Box>
         </Box>
       </Box>
+
+      {/* Cart snackbar */}
+      <Snackbar
+        open={cartSnackbar}
+        autoHideDuration={2000}
+        onClose={() => setCartSnackbar(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setCartSnackbar(false)} severity="success" variant="filled" sx={{ width: '100%' }}>
+          Item added to cart!
+        </Alert>
+      </Snackbar>
     </ThemeProvider>
   )
 }
