@@ -30,7 +30,8 @@ import {
   Menu as MenuIcon,
   Close as CloseIcon,
   ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon
+  ChevronRight as ChevronRightIcon,
+  ShoppingCart as ShoppingCartIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -890,19 +891,37 @@ function App() {
                                   )}
                                 </CardContent>
 
-                                {product.path && (
+                                {(product.path || product.menuUrl) && (
                                   <Box sx={{ p: 2, pt: 0 }}>
-                                    <Button
-                                      component={Link}
-                                      href={product.path}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      variant="contained"
-                                      size="small"
-                                      fullWidth
-                                    >
-                                      View Product
-                                    </Button>
+                                    <Stack spacing={1}>
+                                      {product.menuUrl && (
+                                        <Button
+                                          component={Link}
+                                          href={product.menuUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          variant="contained"
+                                          size="small"
+                                          fullWidth
+                                          startIcon={<ShoppingCartIcon />}
+                                        >
+                                          Add to Cart
+                                        </Button>
+                                      )}
+                                      {product.path && (
+                                        <Button
+                                          component={Link}
+                                          href={product.path}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          variant="outlined"
+                                          size="small"
+                                          fullWidth
+                                        >
+                                          View Product
+                                        </Button>
+                                      )}
+                                    </Stack>
                                   </Box>
                                 )}
                               </Card>
