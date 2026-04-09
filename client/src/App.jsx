@@ -38,7 +38,10 @@ import {
   ChevronRight as ChevronRightIcon,
   ShoppingCart as ShoppingCartIcon,
   AddShoppingCart as AddShoppingCartIcon,
-  Check as CheckIcon
+  Check as CheckIcon,
+  Star as StarIcon,
+  StarHalf as StarHalfIcon,
+  StarBorder as StarBorderIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -179,6 +182,7 @@ function App() {
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
   const [selectedMode, setSelectedMode] = useState('newbie')
   const [selectedVoice, setSelectedVoice] = useState('z9fAnlkpzviPz146aGWa')
+  const [selectedApiSource, setSelectedApiSource] = useState('iheartjane')
   const [selectedWeights, setSelectedWeights] = useState({})
   const messagesEndRef = useRef(null)
   const typewriterRef = useRef(null)
@@ -528,7 +532,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: userMessage, history, mode: selectedMode })
+        body: JSON.stringify({ message: userMessage, history, mode: selectedMode, apiSource: selectedApiSource })
       })
 
       const data = await response.json()
@@ -739,6 +743,28 @@ function App() {
             </Select>
           </FormControl>
 
+          {/* API Source selector */}
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mt: 1.5, mb: 0.5 }}>Data Source</Typography>
+          <FormControl size="small" sx={{ width: '100%', px: 0.5 }}>
+            <Select
+              value={selectedApiSource}
+              onChange={(e) => setSelectedApiSource(e.target.value)}
+              disabled={isLoading}
+              sx={{
+                fontSize: '0.75rem',
+                color: 'white',
+                height: 32,
+                '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.4)' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.6)' },
+                '.MuiSvgIcon-root': { color: 'rgba(255,255,255,0.5)' },
+              }}
+            >
+              <MenuItem value="iheartjane" sx={{ fontSize: '0.75rem' }}>iHeartJane API</MenuItem>
+              <MenuItem value="algolia" sx={{ fontSize: '0.75rem' }}>Algolia (Ratings + Effects)</MenuItem>
+            </Select>
+          </FormControl>
+
           {/* Cart button */}
           <Button
             onClick={() => navigate('/cart')}
@@ -888,6 +914,21 @@ function App() {
                                     {product.brand}
                                   </Typography>
 
+                                  {/* Rating stars (from Algolia API) */}
+                                  {product.aggregate_rating != null && product.aggregate_rating > 0 && (
+                                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5 }}>
+                                      {[1, 2, 3, 4, 5].map(star => {
+                                        const rating = product.aggregate_rating
+                                        if (rating >= star) return <StarIcon key={star} sx={{ fontSize: 16, color: '#d4a574' }} />
+                                        if (rating >= star - 0.5) return <StarHalfIcon key={star} sx={{ fontSize: 16, color: '#d4a574' }} />
+                                        return <StarBorderIcon key={star} sx={{ fontSize: 16, color: '#d4a574' }} />
+                                      })}
+                                      <Typography variant="caption" sx={{ color: 'text.secondary', ml: 0.5 }}>
+                                        {product.aggregate_rating.toFixed(1)} ({product.review_count})
+                                      </Typography>
+                                    </Stack>
+                                  )}
+
                                   <Stack direction="row" spacing={1} sx={{ mb: 1 }} flexWrap="wrap" useFlexGap>
                                     <Chip 
                                       label={product.kind} 
@@ -924,10 +965,47 @@ function App() {
                                     )}
                                   </Stack>
 
+                                  {/* Effects / Feelings (from Algolia API) */}
+                                  {((product.effects && product.effects.length > 0) || (product.feelings && product.feelings.length > 0)) && (
+                                    <Stack direction="row" spacing={0.5} sx={{ mb: 1 }} flexWrap="wrap" useFlexGap>
+                                      {(product.effects && product.effects.length > 0 ? product.effects : product.feelings).slice(0, 3).map((effect, eIdx) => (
+                                        <Chip 
+                                          key={eIdx}
+                                          label={effect} 
+                                          size="small" 
+                                          sx={{ 
+                                            fontSize: '0.65rem', 
+                                            height: 20,
+                                            bgcolor: 'rgba(58, 138, 158, 0.1)',
+                                            color: '#2D6370',
+                                            borderColor: 'rgba(58, 138, 158, 0.3)',
+                                          }}
+                                          variant="outlined"
+                                        />
+                                      ))}
+                                    </Stack>
+                                  )}
+
                                   {product.price && (
                                     <Typography variant="h6" color="primary" gutterBottom>
                                       {product.price}
                                     </Typography>
+                                  )}
+
+                                  {/* API source indicator */}
+                                  {product._apiSource && (
+                                    <Chip 
+                                      label={product._apiSource === 'algolia' ? 'Algolia' : 'iHeartJane'} 
+                                      size="small"
+                                      sx={{ 
+                                        fontSize: '0.6rem', 
+                                        height: 18,
+                                        bgcolor: product._apiSource === 'algolia' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(33, 150, 243, 0.1)',
+                                        color: product._apiSource === 'algolia' ? '#2e7d32' : '#1565c0',
+                                        borderColor: product._apiSource === 'algolia' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(33, 150, 243, 0.3)',
+                                      }}
+                                      variant="outlined"
+                                    />
                                   )}
                                 </CardContent>
 

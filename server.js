@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { scrapeMenu, buildMenuContext, annotateProductsWithDeals } = require('./menu-scraper');
 const { buildDocumentContext, loadAllDocuments } = require('./doc-parser');
+const algoliasearch = require('algoliasearch');
 
 // Architecture: User query → extractUserIntent → scoreProduct (all products) → enrich with live menu data → send ALL to Claude → Claude selects 2-3 → match back to product cards
 
@@ -46,6 +47,18 @@ const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 let dailyMenuContext = null;
 let dailyDealMap = null;
 let dailyCacheDate = null;
+
+// Algolia configuration (beyondHelloCommerce API)
+const ALGOLIA_APP_ID = 'VFM4X0N23A';
+const ALGOLIA_API_KEY = 'f973f98796b1740c55d243451b59042c';
+const ALGOLIA_INDEX_NAME = 'menu-products-production';
+const algoliaClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_API_KEY);
+const algoliaIndex = algoliaClient.initIndex(ALGOLIA_INDEX_NAME);
+
+// Algolia products cache (separate from iHeartJane cache)
+let algoliaProductsCache = null;
+let algoliaLastFetchTime = null;
+let algoliaLoadingPromise = null;
 
 function getTodayKey() {
   return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
@@ -182,7 +195,155 @@ async function getAllProducts() {
   return loadingPromise;
 }
 
-// Function to generate correct Beyond Hello product URL
+// Algolia store ID for Bristol, PA (same store as iHeartJane 1635)
+const ALGOLIA_STORE_ID = '1635';
+
+// Function to normalize Algolia product data to match iHeartJane format
+function normalizeAlgoliaProduct(hit) {
+  return {
+    // Core IDs
+    product_id: hit.product_id || hit.objectID,
+    
+    // Naming
+    name: hit.name,
+    full_name: hit.full_name || hit.name,
+    brand: hit.brand,
+    description: hit.description || '',
+    
+    // Classification
+    kind: hit.kind || hit.custom_product_type,
+    kind_subtype: hit.kind_subtype || hit.root_subtype || '',
+    root_subtype: hit.root_subtype || hit.kind_subtype || '',
+    type: hit.kind || hit.custom_product_type,
+    root_types: hit.root_types || [],
+    lineage: hit.lineage || hit.category || 'unknown',
+    category: hit.category || '',
+    
+    // Images - Algolia has image_urls (same as iHeartJane)
+    image_urls: hit.image_urls || [],
+    
+    // Cannabinoids
+    percent_thc: hit.percent_thc,
+    percent_cbd: hit.percent_cbd,
+    percent_thca: hit.percent_thca,
+    percent_cbda: hit.percent_cbda,
+    
+    // Prices (same structure in both APIs)
+    price_each: hit.price_each,
+    price_half_gram: hit.price_half_gram,
+    price_gram: hit.price_gram,
+    price_two_gram: hit.price_two_gram,
+    price_eighth_ounce: hit.price_eighth_ounce,
+    price_quarter_ounce: hit.price_quarter_ounce,
+    price_half_ounce: hit.price_half_ounce,
+    price_ounce: hit.price_ounce,
+    discounted_price_each: hit.discounted_price_each,
+    discounted_price_half_gram: hit.discounted_price_half_gram,
+    discounted_price_gram: hit.discounted_price_gram,
+    discounted_price_two_gram: hit.discounted_price_two_gram,
+    discounted_price_eighth_ounce: hit.discounted_price_eighth_ounce,
+    discounted_price_quarter_ounce: hit.discounted_price_quarter_ounce,
+    discounted_price_half_ounce: hit.discounted_price_half_ounce,
+    discounted_price_ounce: hit.discounted_price_ounce,
+    
+    // Algolia-exclusive fields (ratings, feelings, activities)
+    aggregate_rating: hit.aggregate_rating || null,
+    review_count: hit.review_count || 0,
+    effects: hit.effects && hit.effects.length > 0 ? hit.effects : (hit.feelings || []),
+    flavors: hit.flavors || [],
+    feelings: hit.feelings || [],
+    activities: hit.activities || [],
+    
+    // Inventory & visibility
+    inventory_count: hit.inventory_count,
+    visible: hit.visible,
+    
+    // Store info
+    store_id: hit.store_id,
+    store_notes: hit.store_notes || '',
+    special_id: hit.special_id,
+    special_title: hit.special_title,
+    
+    // Track which API this came from
+    _apiSource: 'algolia',
+  };
+}
+
+// Function to get ALL products from Algolia index
+async function getAllAlgoliaProducts(storeId = ALGOLIA_STORE_ID) {
+  // Check cache
+  if (algoliaProductsCache && algoliaLastFetchTime && (Date.now() - algoliaLastFetchTime < CACHE_DURATION)) {
+    console.log('Returning cached Algolia products');
+    return algoliaProductsCache;
+  }
+
+  // If already loading, return the existing promise
+  if (algoliaLoadingPromise) {
+    console.log('Algolia fetch already in progress, waiting for completion...');
+    return algoliaLoadingPromise;
+  }
+
+  console.log('Fetching fresh products from Algolia...');
+  
+  algoliaLoadingPromise = (async () => {
+    try {
+      // Use search with pagination to get all products (search API key doesn't support browse)
+      const allHits = [];
+      let page = 0;
+      let totalPages = 1;
+      
+      while (page < totalPages) {
+        const result = await algoliaIndex.search('', {
+          filters: `store_id:${storeId}`,
+          hitsPerPage: 1000,
+          page: page,
+          attributesToRetrieve: [
+            'product_id', 'objectID', 'name', 'full_name', 'brand', 'description',
+            'kind', 'kind_subtype', 'root_subtype', 'custom_product_type', 'root_types', 'lineage', 'category',
+            'image_urls',
+            'percent_thc', 'percent_cbd', 'percent_thca', 'percent_cbda',
+            'price_each', 'price_half_gram', 'price_gram', 'price_two_gram',
+            'price_eighth_ounce', 'price_quarter_ounce', 'price_half_ounce', 'price_ounce',
+            'discounted_price_each', 'discounted_price_half_gram', 'discounted_price_gram', 'discounted_price_two_gram',
+            'discounted_price_eighth_ounce', 'discounted_price_quarter_ounce', 'discounted_price_half_ounce', 'discounted_price_ounce',
+            'aggregate_rating', 'review_count', 'effects', 'flavors', 'feelings', 'activities',
+            'inventory_count', 'visible', 'store_id', 'store_notes',
+            'special_id', 'special_title', 'terpenes', 'url_slug',
+          ],
+        });
+        
+        allHits.push(...result.hits);
+        totalPages = result.nbPages;
+        page++;
+      }
+      
+      // Normalize all products to match iHeartJane format
+      const normalizedProducts = allHits.map(normalizeAlgoliaProduct);
+      
+      algoliaProductsCache = normalizedProducts;
+      algoliaLastFetchTime = Date.now();
+      console.log(`Loaded ${normalizedProducts.length} products from Algolia (store ${storeId})`);
+      
+      return normalizedProducts;
+    } catch (err) {
+      console.error('Error fetching Algolia products:', err.message);
+      throw err;
+    } finally {
+      algoliaLoadingPromise = null;
+    }
+  })();
+
+  return algoliaLoadingPromise;
+}
+
+// Unified product getter that routes to the right API
+async function getProducts(apiSource = 'iheartjane') {
+  if (apiSource === 'algolia') {
+    return getAllAlgoliaProducts();
+  }
+  return getAllProducts();
+}
+
 function generateProductUrl(product) {
   const BASE_URL = 'https://beyond-hello.com/pennsylvania-dispensaries/bristol/medical-menu/menu/products';
   
@@ -461,6 +622,44 @@ function scoreProduct(product, intent) {
     }
   }
   
+  // 6. ALGOLIA EFFECTS/FEELINGS MATCH (+2 points per matching effect)
+  if (intent.effects && intent.effects.length > 0) {
+    // Check 'effects' field
+    const productEffectsLower = (product.effects || []).map(e => e.toLowerCase());
+    // Check 'feelings' field (Algolia-specific, e.g. "Blissful", "Relaxed", "Pain free")
+    const productFeelingsLower = (product.feelings || []).map(e => e.toLowerCase());
+    const allProductEffects = [...productEffectsLower, ...productFeelingsLower];
+    
+    if (allProductEffects.length > 0) {
+      const effectAliases = {
+        sleep: ['sleepy', 'drowsy', 'sedated', 'relaxed', 'get some sleep'],
+        energy: ['energetic', 'uplifted', 'euphoric', 'focused', 'get energized'],
+        relax: ['relaxed', 'calm', 'happy', 'euphoric', 'blissful', 'ease my mind'],
+        focus: ['focused', 'creative', 'energetic', 'uplifted', 'get creative'],
+        pain: ['relaxed', 'tingly', 'happy', 'pain free', 'get relief'],
+        creative: ['creative', 'energetic', 'uplifted', 'euphoric', 'get creative'],
+        appetite: ['hungry', 'relaxed', 'happy'],
+        mood: ['happy', 'euphoric', 'uplifted', 'giggly', 'blissful'],
+      };
+      
+      for (const effect of intent.effects) {
+        const aliases = effectAliases[effect] || [];
+        for (const alias of aliases) {
+          if (allProductEffects.some(pe => pe.includes(alias))) {
+            score += 2;
+            break; // Only count once per intent effect
+          }
+        }
+      }
+    }
+  }
+  
+  // 7. RATING BONUS (up to +2 points for highly rated products from Algolia)
+  if (product.aggregate_rating != null && product.aggregate_rating > 0) {
+    if (product.aggregate_rating >= 4.5) score += 2;
+    else if (product.aggregate_rating >= 4.0) score += 1;
+  }
+  
   return score;
 }
 
@@ -627,7 +826,19 @@ function buildCompactSummary(product) {
   
   // Build the compact summary string
   const subtypeString = subtype ? `/${subtype}` : '';
-  const summary = `[${id}] ${name} | ${brand} | ${kind}${subtypeString} | ${lineage} | ${cannabinoids} | ${terpeneString} | ${price}`;
+  let summary = `[${id}] ${name} | ${brand} | ${kind}${subtypeString} | ${lineage} | ${cannabinoids} | ${terpeneString} | ${price}`;
+  
+  // Add rating info if available (from Algolia API)
+  if (product.aggregate_rating != null && product.aggregate_rating > 0) {
+    summary += ` | Rating: ${product.aggregate_rating.toFixed(1)}/5 (${product.review_count || 0} reviews)`;
+  }
+  
+  // Add effects if available (from Algolia API)
+  if (product.effects && product.effects.length > 0) {
+    summary += ` | Effects: ${product.effects.slice(0, 3).join(', ')}`;
+  } else if (product.feelings && product.feelings.length > 0) {
+    summary += ` | Feelings: ${product.feelings.slice(0, 3).join(', ')}`;
+  }
   
   return summary;
 }
@@ -684,7 +895,15 @@ function buildProductCard(product) {
     description: (product.description || '').substring(0, 200),
     path: generateProductUrl(product),
     image: product.image_urls?.[0] || null,
-    product_id: product.product_id
+    product_id: product.product_id,
+    // Algolia-exclusive fields (only present when using Algolia API)
+    aggregate_rating: product.aggregate_rating || null,
+    review_count: product.review_count || 0,
+    effects: product.effects || [],
+    flavors: product.flavors || [],
+    feelings: product.feelings || [],
+    activities: product.activities || [],
+    _apiSource: product._apiSource || 'iheartjane',
   };
 }
 
@@ -1259,8 +1478,15 @@ app.post('/api/chat', async (req, res) => {
   console.log('=== /api/chat endpoint called ===');
   
   try {
-    let { message, history, model, mode } = req.body;
+    let { message, history, model, mode, apiSource } = req.body;
     console.log('✅ Request body parsed successfully');
+    
+    // Validate apiSource
+    const validApiSources = ['iheartjane', 'algolia'];
+    if (!apiSource || !validApiSources.includes(apiSource)) {
+      apiSource = 'iheartjane'; // default
+    }
+    console.log(`📡 API Source: ${apiSource}`);
     
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
@@ -1290,13 +1516,13 @@ app.post('/api/chat', async (req, res) => {
     // Get products with better error handling
     let products;
     try {
-      console.log('📦 Starting product loading...');
-      products = await getAllProducts();
-      console.log('✅ Products loaded successfully');
+      console.log(`📦 Starting product loading from ${apiSource}...`);
+      products = await getProducts(apiSource);
+      console.log(`✅ Products loaded successfully from ${apiSource}`);
     } catch (error) {
-      console.error('❌ Failed to get products:', error.message);
+      console.error(`❌ Failed to get products from ${apiSource}:`, error.message);
       return res.status(500).json({ 
-        error: 'Unable to load product catalog. Please try again later.',
+        error: `Unable to load product catalog from ${apiSource}. Please try again later.`,
         details: error.message 
       });
     }
@@ -1329,7 +1555,8 @@ app.post('/api/chat', async (req, res) => {
     console.log('✅ Sending response...');
     res.json({ 
       response: result.text, 
-      products: result.products 
+      products: result.products,
+      apiSource: apiSource
     });
     console.log('✅ Response sent successfully');
   } catch (error) {
