@@ -37,7 +37,8 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   ShoppingCart as ShoppingCartIcon,
-  AddShoppingCart as AddShoppingCartIcon
+  AddShoppingCart as AddShoppingCartIcon,
+  Check as CheckIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -156,6 +157,7 @@ function App() {
   const { addToCart, cartCount } = useContext(CartContext)
   const navigate = useNavigate()
   const [cartSnackbar, setCartSnackbar] = useState(false)
+  const [addedItems, setAddedItems] = useState({})
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -957,17 +959,18 @@ function App() {
                                             const weightKey = selectedWeights[product.product_id] || product.weights[0].key
                                             addToCart(product.product_id, weightKey)
                                             setCartSnackbar(true)
+                                            setAddedItems(prev => ({ ...prev, [product.product_id]: true }))
                                           }}
                                           sx={{
-                                            bgcolor: '#233D4B',
+                                            bgcolor: addedItems[product.product_id] ? '#2e7d32' : '#233D4B',
                                             color: 'white',
-                                            '&:hover': { bgcolor: '#3A6378' },
+                                            '&:hover': { bgcolor: addedItems[product.product_id] ? '#1b5e20' : '#3A6378' },
                                             borderRadius: 1,
                                             width: 32,
                                             height: 32,
                                           }}
                                         >
-                                          <AddShoppingCartIcon fontSize="small" />
+                                          {addedItems[product.product_id] ? <CheckIcon fontSize="small" /> : <AddShoppingCartIcon fontSize="small" />}
                                         </IconButton>
                                       </Stack>
                                     </Stack>
@@ -975,30 +978,21 @@ function App() {
                                   {/* Fallback: single add-to-cart if no weights */}
                                   {(!product.weights || product.weights.length === 0) && product.product_id && (
                                     <Button
-                                      variant="outlined"
+                                      variant={addedItems[product.product_id] ? 'contained' : 'outlined'}
                                       size="small"
                                       fullWidth
-                                      startIcon={<AddShoppingCartIcon />}
+                                      startIcon={addedItems[product.product_id] ? <CheckIcon /> : <AddShoppingCartIcon />}
                                       onClick={() => {
                                         addToCart(product.product_id, 'each')
                                         setCartSnackbar(true)
+                                        setAddedItems(prev => ({ ...prev, [product.product_id]: true }))
                                       }}
-                                      sx={{ mb: 1 }}
+                                      sx={addedItems[product.product_id] ? {
+                                        bgcolor: '#2e7d32',
+                                        '&:hover': { bgcolor: '#1b5e20' },
+                                      } : {}}
                                     >
-                                      Add to Cart
-                                    </Button>
-                                  )}
-                                  {product.path && (
-                                    <Button
-                                      component={Link}
-                                      href={product.path}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      variant="contained"
-                                      size="small"
-                                      fullWidth
-                                    >
-                                      View Product
+                                      {addedItems[product.product_id] ? 'Added to Cart' : 'Add to Cart'}
                                     </Button>
                                   )}
                                 </Box>

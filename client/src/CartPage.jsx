@@ -54,6 +54,15 @@ function CartPage() {
           frame.contentWindow.postMessage(data, '*')
         }
       }
+
+      // Clear cart when Jane signals checkout is complete
+      if (
+        messageType === 'checkoutEvent' ||
+        (messageType === 'loadingEvent' && payload && payload.name === 'checkoutComplete') ||
+        messageType === 'orderComplete'
+      ) {
+        clearCart()
+      }
     }
 
     window.addEventListener('message', receiveMessage, false)
