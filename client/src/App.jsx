@@ -1,6 +1,8 @@
 ﻿import { useState, useRef, useEffect, useContext } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CartContext } from './CartContext'
+import { AuthContext } from './AuthContext'
+import AuthModal from './AuthModal'
 import { 
   Box, 
   Container, 
@@ -42,7 +44,9 @@ import {
   Star as StarIcon,
   StarHalf as StarHalfIcon,
   StarBorder as StarBorderIcon,
-  AddComment as AddCommentIcon
+  AddComment as AddCommentIcon,
+  Person as PersonIcon,
+  Logout as LogoutIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -159,7 +163,9 @@ const theme = createTheme({
 
 function App() {
   const { addToCart, cartCount } = useContext(CartContext)
+  const { user, signOut } = useContext(AuthContext)
   const navigate = useNavigate()
+  const [authModalOpen, setAuthModalOpen] = useState(false)
   const [cartSnackbar, setCartSnackbar] = useState(false)
   const [addedItems, setAddedItems] = useState({})
   const defaultMessages = [
@@ -801,6 +807,43 @@ function App() {
           >
             View Cart
           </Button>
+
+          {/* Auth button */}
+          {user ? (
+            <Button
+              onClick={signOut}
+              startIcon={<LogoutIcon fontSize="small" />}
+              sx={{
+                mt: 1,
+                color: 'white',
+                borderColor: 'rgba(255,255,255,0.3)',
+                fontSize: '0.75rem',
+                '&:hover': { borderColor: 'rgba(255,255,255,0.6)', bgcolor: 'rgba(255,255,255,0.08)' },
+              }}
+              variant="outlined"
+              size="small"
+              fullWidth
+            >
+              Sign Out
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setAuthModalOpen(true)}
+              startIcon={<PersonIcon fontSize="small" />}
+              sx={{
+                mt: 1,
+                color: 'white',
+                borderColor: 'rgba(255,255,255,0.3)',
+                fontSize: '0.75rem',
+                '&:hover': { borderColor: 'rgba(255,255,255,0.6)', bgcolor: 'rgba(255,255,255,0.08)' },
+              }}
+              variant="outlined"
+              size="small"
+              fullWidth
+            >
+              Login / Sign Up
+            </Button>
+          )}
         </Box>
 
         {/* Main Chat Area */}
@@ -1178,6 +1221,7 @@ function App() {
           Item added to cart!
         </Alert>
       </Snackbar>
+      <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </ThemeProvider>
   )
 }
