@@ -182,7 +182,7 @@ function App() {
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
   const [selectedMode, setSelectedMode] = useState('newbie')
   const [selectedVoice, setSelectedVoice] = useState('z9fAnlkpzviPz146aGWa')
-  const [selectedApiSource, setSelectedApiSource] = useState('iheartjane')
+  const [selectedApiSource, setSelectedApiSource] = useState('algolia')
   const [selectedWeights, setSelectedWeights] = useState({})
   const messagesEndRef = useRef(null)
   const typewriterRef = useRef(null)
@@ -743,27 +743,7 @@ function App() {
             </Select>
           </FormControl>
 
-          {/* API Source selector */}
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mt: 1.5, mb: 0.5 }}>Data Source</Typography>
-          <FormControl size="small" sx={{ width: '100%', px: 0.5 }}>
-            <Select
-              value={selectedApiSource}
-              onChange={(e) => setSelectedApiSource(e.target.value)}
-              disabled={isLoading}
-              sx={{
-                fontSize: '0.75rem',
-                color: 'white',
-                height: 32,
-                '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.4)' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.6)' },
-                '.MuiSvgIcon-root': { color: 'rgba(255,255,255,0.5)' },
-              }}
-            >
-              <MenuItem value="iheartjane" sx={{ fontSize: '0.75rem' }}>iHeartJane API</MenuItem>
-              <MenuItem value="algolia" sx={{ fontSize: '0.75rem' }}>Algolia (Ratings + Effects)</MenuItem>
-            </Select>
-          </FormControl>
+          {/* API Source selector - hidden, defaulting to Algolia */}
 
           {/* Cart button */}
           <Button
