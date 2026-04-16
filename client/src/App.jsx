@@ -41,7 +41,8 @@ import {
   Check as CheckIcon,
   Star as StarIcon,
   StarHalf as StarHalfIcon,
-  StarBorder as StarBorderIcon
+  StarBorder as StarBorderIcon,
+  AddComment as AddCommentIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -161,13 +162,21 @@ function App() {
   const navigate = useNavigate()
   const [cartSnackbar, setCartSnackbar] = useState(false)
   const [addedItems, setAddedItems] = useState({})
-  const [messages, setMessages] = useState([
+  const defaultMessages = [
     {
       role: 'assistant',
       content: "Hi! I'm Daisy Smart Menu from Beyond Hello. What are you looking for today?",
       products: []
     }
-  ])
+  ]
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('daisyChatMessages')
+      return saved ? JSON.parse(saved) : defaultMessages
+    } catch {
+      return defaultMessages
+    }
+  })
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -209,7 +218,15 @@ function App() {
 
   useEffect(() => {
     scrollToBottom()
+    try {
+      sessionStorage.setItem('daisyChatMessages', JSON.stringify(messages))
+    } catch { /* ignore storage errors */ }
   }, [messages])
+
+  const clearChat = () => {
+    setMessages(defaultMessages)
+    sessionStorage.removeItem('daisyChatMessages')
+  }
 
   useEffect(() => {
     // Cleanup typewriter effect and audio on unmount
@@ -745,6 +762,24 @@ function App() {
 
           {/* API Source selector - hidden, defaulting to Algolia */}
 
+          {/* New Chat button */}
+          <Button
+            onClick={clearChat}
+            startIcon={<AddCommentIcon fontSize="small" />}
+            sx={{
+              mt: 1.5,
+              color: 'white',
+              borderColor: 'rgba(255,255,255,0.3)',
+              fontSize: '0.75rem',
+              '&:hover': { borderColor: 'rgba(255,255,255,0.6)', bgcolor: 'rgba(255,255,255,0.08)' },
+            }}
+            variant="outlined"
+            size="small"
+            fullWidth
+          >
+            New Chat
+          </Button>
+
           {/* Cart button */}
           <Button
             onClick={() => navigate('/cart')}
@@ -754,7 +789,7 @@ function App() {
               </Badge>
             }
             sx={{
-              mt: 1.5,
+              mt: 1,
               color: 'white',
               borderColor: 'rgba(255,255,255,0.3)',
               fontSize: '0.75rem',
